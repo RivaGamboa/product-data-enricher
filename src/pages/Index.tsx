@@ -179,10 +179,10 @@ const Index = () => {
             <div className="flex items-center gap-3">
               {user ? (
                 <>
-                  <div className="hidden sm:flex items-center gap-2 text-sm text-muted-foreground">
+                  <Link to="/profile" className="hidden sm:flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors">
                     <User className="h-4 w-4" />
                     <span>{user.email}</span>
-                  </div>
+                  </Link>
                   <ConfigPresetManager
                     abbreviations={abbreviations}
                     columnConfig={columnConfig}
