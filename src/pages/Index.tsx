@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { Shield, Database, User, LogOut, Save, Loader2 } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { Shield, Database, User, LogOut, Save, Loader2, History } from 'lucide-react';
 import { Toaster } from '@/components/ui/toaster';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
@@ -167,6 +168,12 @@ const Index = () => {
                     <User className="h-4 w-4" />
                     <span>{user.email}</span>
                   </div>
+                  <Link to="/history">
+                    <Button variant="outline" size="sm">
+                      <History className="h-4 w-4" />
+                      <span className="hidden sm:inline ml-2">Histórico</span>
+                    </Button>
+                  </Link>
                   <Button
                     variant="outline"
                     size="sm"
