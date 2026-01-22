@@ -98,27 +98,86 @@ export const detectDuplicates = (
   );
   
   if (descColumn) {
-    for (let i = 0; i < Math.min(data.length, 100); i++) {
-      if (duplicates.some(d => d.linhas.includes(i))) continue;
-      
-      const desc1 = String(data[i][descColumn] || '').toLowerCase().trim();
-      if (!desc1) continue;
-      
-      for (let j = i + 1; j < Math.min(data.length, 100); j++) {
-        const desc2 = String(data[j][descColumn] || '').toLowerCase().trim();
-        if (!desc2) continue;
+    // For large datasets, use a more efficient approach with fingerprinting
+    const maxItemsForFullComparison = 500;
+    const dataLength = data.length;
+    
+    if (dataLength <= maxItemsForFullComparison) {
+      // Full pairwise comparison for smaller datasets
+      for (let i = 0; i < dataLength; i++) {
+        if (duplicates.some(d => d.linhas.includes(i) && d.tipo === 'Descrição Similar')) continue;
         
-        const similarity = calculateSimilarity(desc1, desc2);
-        if (similarity > 0.85) {
-          duplicates.push({
-            tipo: 'Descrição Similar',
-            valor: desc1.substring(0, 40) + (desc1.length > 40 ? '...' : ''),
-            linhas: [i, j],
-            similaridade: Math.round(similarity * 100) / 100
-          });
-          break;
+        const desc1 = String(data[i][descColumn] || '').toLowerCase().trim();
+        if (!desc1 || desc1.length < 5) continue;
+        
+        for (let j = i + 1; j < dataLength; j++) {
+          const desc2 = String(data[j][descColumn] || '').toLowerCase().trim();
+          if (!desc2 || desc2.length < 5) continue;
+          
+          const similarity = calculateSimilarity(desc1, desc2);
+          if (similarity > 0.85) {
+            duplicates.push({
+              tipo: 'Descrição Similar',
+              valor: desc1.substring(0, 40) + (desc1.length > 40 ? '...' : ''),
+              linhas: [i, j],
+              similaridade: Math.round(similarity * 100) / 100
+            });
+            break;
+          }
         }
       }
+    } else {
+      // Use fingerprinting for large datasets
+      const fingerprints = new Map<string, number[]>();
+      
+      data.forEach((row, index) => {
+        const desc = String(row[descColumn] || '').toLowerCase().trim();
+        if (!desc || desc.length < 5) return;
+        
+        // Create a simple fingerprint from the first few significant words
+        const words = desc.split(/\W+/).filter(w => w.length > 2).slice(0, 4);
+        const fingerprint = words.sort().join('_');
+        
+        if (fingerprint) {
+          if (!fingerprints.has(fingerprint)) {
+            fingerprints.set(fingerprint, []);
+          }
+          fingerprints.get(fingerprint)!.push(index);
+        }
+      });
+      
+      // Check items with same fingerprint
+      fingerprints.forEach((indices) => {
+        if (indices.length > 1) {
+          // Do pairwise comparison within the group
+          for (let i = 0; i < indices.length; i++) {
+            for (let j = i + 1; j < indices.length; j++) {
+              const idx1 = indices[i];
+              const idx2 = indices[j];
+              
+              // Skip if already marked
+              if (duplicates.some(d => 
+                d.tipo === 'Descrição Similar' && 
+                d.linhas.includes(idx1) && 
+                d.linhas.includes(idx2)
+              )) continue;
+              
+              const desc1 = String(data[idx1][descColumn] || '').toLowerCase().trim();
+              const desc2 = String(data[idx2][descColumn] || '').toLowerCase().trim();
+              
+              const similarity = calculateSimilarity(desc1, desc2);
+              if (similarity > 0.85) {
+                duplicates.push({
+                  tipo: 'Descrição Similar',
+                  valor: desc1.substring(0, 40) + (desc1.length > 40 ? '...' : ''),
+                  linhas: [idx1, idx2],
+                  similaridade: Math.round(similarity * 100) / 100
+                });
+              }
+            }
+          }
+        }
+      });
     }
   }
   
