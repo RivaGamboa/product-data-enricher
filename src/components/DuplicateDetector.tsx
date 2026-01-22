@@ -1,10 +1,11 @@
 import { useEffect, useState, useMemo } from 'react';
-import { Search, AlertTriangle, CheckCircle2, ChevronLeft, Play, Loader2, Files, Filter } from 'lucide-react';
+import { Search, AlertTriangle, CheckCircle2, ChevronLeft, Play, Loader2, Files, Filter, Download } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { detectDuplicates, type ColumnConfig, type DuplicateResult } from '@/utils/dataProcessors';
+import { useToast } from '@/hooks/use-toast';
+import { detectDuplicates, exportToExcel, type ColumnConfig, type DuplicateResult } from '@/utils/dataProcessors';
 
 interface DuplicateDetectorProps {
   data: Record<string, unknown>[];
@@ -28,9 +29,11 @@ const DuplicateDetector = ({
   onBack,
   isProcessing
 }: DuplicateDetectorProps) => {
+  const { toast } = useToast();
   const [duplicates, setDuplicates] = useState<EnhancedDuplicateResult[]>([]);
   const [isScanning, setIsScanning] = useState(false);
   const [showOnlyCrossFile, setShowOnlyCrossFile] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
 
   // Check if data has source file info (batch upload)
   const hasBatchData = useMemo(() => {
@@ -98,6 +101,47 @@ const DuplicateDetector = ({
     return fullName.substring(0, 17) + '...';
   };
 
+  // Export merged data as backup
+  const handleExportBackup = async () => {
+    setIsExporting(true);
+    try {
+      // Remove internal metadata columns for export
+      const cleanData = data.map(row => {
+        const cleaned: Record<string, unknown> = {};
+        Object.entries(row).forEach(([key, value]) => {
+          if (!key.startsWith('__')) {
+            cleaned[key] = value;
+          }
+        });
+        // Add source file as a visible column if batch data
+        if (hasBatchData && row.__source_file) {
+          cleaned['_Arquivo_Origem'] = row.__source_file;
+        }
+        return cleaned;
+      });
+
+      const timestamp = new Date().toISOString().split('T')[0];
+      const filename = hasBatchData && sourceFiles.length > 1 
+        ? `backup_mesclado_${sourceFiles.length}_arquivos_${timestamp}`
+        : `backup_dados_${timestamp}`;
+      
+      exportToExcel(cleanData, filename);
+      
+      toast({
+        title: 'Backup exportado!',
+        description: `${data.length.toLocaleString()} itens salvos em ${filename}.xlsx`
+      });
+    } catch (error) {
+      toast({
+        title: 'Erro ao exportar',
+        description: 'Não foi possível gerar o arquivo de backup.',
+        variant: 'destructive'
+      });
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
   return (
     <div className="space-y-8 animate-fade-in">
       <div className="flex justify-between items-center">
@@ -136,6 +180,32 @@ const DuplicateDetector = ({
         </div>
       ) : (
         <>
+          {/* Backup Export Button */}
+          <div className="bg-muted/50 rounded-xl p-4 border border-border flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <Download className="h-5 w-5 text-primary" />
+              <div>
+                <p className="font-medium text-foreground">Backup dos Dados Mesclados</p>
+                <p className="text-sm text-muted-foreground">
+                  Exporte todos os {data.length.toLocaleString()} itens antes do processamento
+                </p>
+              </div>
+            </div>
+            <Button 
+              variant="outline" 
+              onClick={handleExportBackup}
+              disabled={isExporting}
+              className="gap-2"
+            >
+              {isExporting ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Download className="h-4 w-4" />
+              )}
+              Exportar Backup
+            </Button>
+          </div>
+
           {/* Summary */}
           <div className="grid md:grid-cols-3 gap-6">
             <div className="bg-card rounded-xl p-6 border border-border">
