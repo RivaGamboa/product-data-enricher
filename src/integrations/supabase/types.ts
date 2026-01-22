@@ -14,7 +14,96 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      processing_logs: {
+        Row: {
+          abbreviations_applied: number | null
+          created_at: string
+          duplicates_found: number | null
+          filename: string
+          id: string
+          original_columns: Json | null
+          processed_columns: Json | null
+          rows_processed: number | null
+          user_id: string
+        }
+        Insert: {
+          abbreviations_applied?: number | null
+          created_at?: string
+          duplicates_found?: number | null
+          filename: string
+          id?: string
+          original_columns?: Json | null
+          processed_columns?: Json | null
+          rows_processed?: number | null
+          user_id: string
+        }
+        Update: {
+          abbreviations_applied?: number | null
+          created_at?: string
+          duplicates_found?: number | null
+          filename?: string
+          id?: string
+          original_columns?: Json | null
+          processed_columns?: Json | null
+          rows_processed?: number | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          created_at: string
+          display_name: string | null
+          email: string | null
+          id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          display_name?: string | null
+          email?: string | null
+          id?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          display_name?: string | null
+          email?: string | null
+          id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_configurations: {
+        Row: {
+          abbreviations: Json | null
+          column_config: Json | null
+          created_at: string
+          id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          abbreviations?: Json | null
+          column_config?: Json | null
+          created_at?: string
+          id?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          abbreviations?: Json | null
+          column_config?: Json | null
+          created_at?: string
+          id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
