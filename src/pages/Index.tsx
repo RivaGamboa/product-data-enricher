@@ -7,6 +7,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useUserConfig } from '@/hooks/useUserConfig';
 import { Button } from '@/components/ui/button';
 import { AuthModal } from '@/components/AuthModal';
+import { ConfigPresetManager } from '@/components/ConfigPresetManager';
 import StepIndicator from '@/components/StepIndicator';
 import UploadSection from '@/components/UploadSection';
 import ColumnMapper from '@/components/ColumnMapper';
@@ -72,6 +73,20 @@ const Index = () => {
       return;
     }
     await saveConfig(abbreviations, columnConfig);
+  };
+
+  const handleImportPreset = (importedAbbreviations: Record<string, string>, importedColumnConfig: Record<string, ColumnConfig>) => {
+    setAbbreviations(importedAbbreviations);
+    // Merge imported column config with current columns if we have data loaded
+    if (columns.length > 0) {
+      const mergedConfig = { ...columnConfig };
+      Object.keys(importedColumnConfig).forEach(key => {
+        if (mergedConfig[key]) {
+          mergedConfig[key] = importedColumnConfig[key];
+        }
+      });
+      setColumnConfig(mergedConfig);
+    }
   };
 
   const handleProcessData = async () => {
@@ -168,6 +183,11 @@ const Index = () => {
                     <User className="h-4 w-4" />
                     <span>{user.email}</span>
                   </div>
+                  <ConfigPresetManager
+                    abbreviations={abbreviations}
+                    columnConfig={columnConfig}
+                    onImport={handleImportPreset}
+                  />
                   <Link to="/history">
                     <Button variant="outline" size="sm">
                       <History className="h-4 w-4" />
