@@ -14,6 +14,157 @@ export type Database = {
   }
   public: {
     Tables: {
+      category_trees: {
+        Row: {
+          categories: Json
+          created_at: string
+          id: string
+          is_active: boolean | null
+          name: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          categories?: Json
+          created_at?: string
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          categories?: Json
+          created_at?: string
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      generated_tags: {
+        Row: {
+          ai_model: string | null
+          combined_tags: string | null
+          created_at: string
+          generated_tags: string[]
+          id: string
+          metadata: Json | null
+          original_tags: string | null
+          product_name: string | null
+          product_sku: string
+          prompt_used: string | null
+          session_id: string | null
+          tag_group: string
+          user_id: string
+        }
+        Insert: {
+          ai_model?: string | null
+          combined_tags?: string | null
+          created_at?: string
+          generated_tags?: string[]
+          id?: string
+          metadata?: Json | null
+          original_tags?: string | null
+          product_name?: string | null
+          product_sku: string
+          prompt_used?: string | null
+          session_id?: string | null
+          tag_group?: string
+          user_id: string
+        }
+        Update: {
+          ai_model?: string | null
+          combined_tags?: string | null
+          created_at?: string
+          generated_tags?: string[]
+          id?: string
+          metadata?: Json | null
+          original_tags?: string | null
+          product_name?: string | null
+          product_sku?: string
+          prompt_used?: string | null
+          session_id?: string | null
+          tag_group?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "generated_tags_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "product_enrichment_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      processed_images: {
+        Row: {
+          created_at: string
+          file_size_bytes: number | null
+          format: string | null
+          height: number | null
+          id: string
+          is_background_removed: boolean | null
+          metadata: Json | null
+          original_url: string | null
+          product_name: string | null
+          product_sku: string
+          public_url: string
+          session_id: string | null
+          source_type: string
+          storage_path: string
+          user_id: string
+          width: number | null
+        }
+        Insert: {
+          created_at?: string
+          file_size_bytes?: number | null
+          format?: string | null
+          height?: number | null
+          id?: string
+          is_background_removed?: boolean | null
+          metadata?: Json | null
+          original_url?: string | null
+          product_name?: string | null
+          product_sku: string
+          public_url: string
+          session_id?: string | null
+          source_type: string
+          storage_path: string
+          user_id: string
+          width?: number | null
+        }
+        Update: {
+          created_at?: string
+          file_size_bytes?: number | null
+          format?: string | null
+          height?: number | null
+          id?: string
+          is_background_removed?: boolean | null
+          metadata?: Json | null
+          original_url?: string | null
+          product_name?: string | null
+          product_sku?: string
+          public_url?: string
+          session_id?: string | null
+          source_type?: string
+          storage_path?: string
+          user_id?: string
+          width?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "processed_images_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "product_enrichment_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       processing_logs: {
         Row: {
           abbreviations_applied: number | null
@@ -46,6 +197,51 @@ export type Database = {
           original_columns?: Json | null
           processed_columns?: Json | null
           rows_processed?: number | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      product_enrichment_sessions: {
+        Row: {
+          created_at: string
+          duplicates_found: number
+          id: string
+          images_added: number
+          items_processed: number
+          metadata: Json | null
+          original_filename: string
+          status: string
+          tags_generated: number
+          total_items: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          duplicates_found?: number
+          id?: string
+          images_added?: number
+          items_processed?: number
+          metadata?: Json | null
+          original_filename: string
+          status?: string
+          tags_generated?: number
+          total_items?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          duplicates_found?: number
+          id?: string
+          images_added?: number
+          items_processed?: number
+          metadata?: Json | null
+          original_filename?: string
+          status?: string
+          tags_generated?: number
+          total_items?: number
+          updated_at?: string
           user_id?: string
         }
         Relationships: []
