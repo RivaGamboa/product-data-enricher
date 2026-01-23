@@ -1,4 +1,4 @@
-import { Upload, Settings, Database, Search, Download, LucideIcon } from 'lucide-react';
+import { Upload, Settings, Database, Image, Tag, Search, Download, LucideIcon } from 'lucide-react';
 
 interface Step {
   id: number;
@@ -12,16 +12,18 @@ interface StepIndicatorProps {
 
 const steps: Step[] = [
   { id: 1, name: 'Upload', icon: Upload },
-  { id: 2, name: 'Configurar', icon: Settings },
+  { id: 2, name: 'Colunas', icon: Settings },
   { id: 3, name: 'Abreviaturas', icon: Database },
-  { id: 4, name: 'Duplicidades', icon: Search },
-  { id: 5, name: 'Resultados', icon: Download }
+  { id: 4, name: 'Imagens', icon: Image },
+  { id: 5, name: 'Identificação', icon: Tag },
+  { id: 6, name: 'Duplicidades', icon: Search },
+  { id: 7, name: 'Resultados', icon: Download }
 ];
 
 const StepIndicator = ({ currentStep }: StepIndicatorProps) => {
   return (
-    <nav className="flex items-center justify-center mb-12">
-      <ol className="flex items-center space-x-2 md:space-x-6">
+    <nav className="flex items-center justify-center mb-12 overflow-x-auto px-2">
+      <ol className="flex items-center space-x-1 md:space-x-4">
         {steps.map((stepItem, index) => {
           const StepIcon = stepItem.icon;
           const isActive = currentStep === stepItem.id;
@@ -61,7 +63,7 @@ const StepIndicator = ({ currentStep }: StepIndicatorProps) => {
               {index < steps.length - 1 && (
                 <div
                   className={`
-                    h-0.5 w-8 md:w-16 mx-2 transition-colors duration-300
+                    h-0.5 w-4 md:w-10 mx-1 transition-colors duration-300
                     ${isCompleted ? 'bg-success' : 'bg-border'}
                   `}
                 />
