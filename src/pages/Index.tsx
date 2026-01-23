@@ -12,15 +12,20 @@ import StepIndicator from '@/components/StepIndicator';
 import UploadSection from '@/components/UploadSection';
 import ColumnMapper from '@/components/ColumnMapper';
 import AbbreviationManager from '@/components/AbbreviationManager';
+import ImageEnrichmentPage from '@/pages/ImageEnrichment';
+import IdentificationPage from '@/pages/Identification';
 import DuplicateDetector from '@/components/DuplicateDetector';
 import ResultsDownloader from '@/components/ResultsDownloader';
 import {
   processData,
   getDefaultAbbreviations,
+  createSession,
+  updateSessionStatus,
   type ColumnConfig,
   type DuplicateResult,
-  type ProcessingResult
-} from '@/utils/dataProcessors';
+  type ProcessingResult,
+  type ProductData
+} from '@/core';
 
 const Index = () => {
   const { toast } = useToast();
@@ -30,13 +35,14 @@ const Index = () => {
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [currentStep, setCurrentStep] = useState(1);
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
-  const [data, setData] = useState<Record<string, unknown>[]>([]);
+  const [data, setData] = useState<ProductData[]>([]);
   const [columns, setColumns] = useState<string[]>([]);
   const [columnConfig, setColumnConfig] = useState<Record<string, ColumnConfig>>({});
   const [abbreviations, setAbbreviations] = useState<Record<string, string>>(getDefaultAbbreviations());
   const [processingResult, setProcessingResult] = useState<ProcessingResult | null>(null);
   const [duplicatesReport, setDuplicatesReport] = useState<DuplicateResult[] | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [sessionId, setSessionId] = useState<string | null>(null);
 
   // Load user config when available
   useEffect(() => {
@@ -47,10 +53,20 @@ const Index = () => {
     }
   }, [config, configLoading]);
 
-  const handleFileUpload = (file: File, parsedData: Record<string, unknown>[], columnsList: string[]) => {
+  const handleFileUpload = async (file: File, parsedData: ProductData[], columnsList: string[]) => {
     setUploadedFile(file);
     setData(parsedData);
     setColumns(columnsList);
+
+    // Create session if user is logged in
+    if (user) {
+      try {
+        const newSessionId = await createSession(user.id, file.name, parsedData.length);
+        setSessionId(newSessionId);
+      } catch (e) {
+        console.error('Failed to create session:', e);
+      }
+    }
 
     // Initialize column configurations
     const initialConfig: Record<string, ColumnConfig> = {};
@@ -110,7 +126,15 @@ const Index = () => {
         );
       }
 
-      setCurrentStep(5);
+      setCurrentStep(7);
+      
+      // Update session status
+      if (sessionId) {
+        await updateSessionStatus(sessionId, 'completed', {
+          itemsProcessed: result.enrichedData.length,
+          duplicatesFound: duplicatesReport?.length || 0
+        });
+      }
       toast({
         title: "Processamento concluído!",
         description: `${result.stats.camposPreenchidos} campos foram enriquecidos.`,
@@ -258,17 +282,37 @@ const Index = () => {
           )}
 
           {currentStep === 4 && (
+            <ImageEnrichmentPage
+              data={data}
+              onDataUpdate={setData}
+              onNext={() => setCurrentStep(5)}
+              onBack={() => setCurrentStep(3)}
+              sessionId={sessionId || undefined}
+            />
+          )}
+
+          {currentStep === 5 && (
+            <IdentificationPage
+              data={data}
+              onDataUpdate={setData}
+              onNext={() => setCurrentStep(6)}
+              onBack={() => setCurrentStep(4)}
+              sessionId={sessionId || undefined}
+            />
+          )}
+
+          {currentStep === 6 && (
             <DuplicateDetector
               data={data}
               columnConfig={columnConfig}
               onDuplicatesFound={setDuplicatesReport}
               onProcess={handleProcessData}
-              onBack={() => setCurrentStep(3)}
+              onBack={() => setCurrentStep(5)}
               isProcessing={isProcessing}
             />
           )}
 
-          {currentStep === 5 && processingResult && (
+          {currentStep === 7 && processingResult && (
             <ResultsDownloader
               originalData={data}
               enrichedData={processingResult.enrichedData}
