@@ -33,3 +33,7 @@ const App = () => (
 );
 
 export default App;
+
+{dadosCarregados.length > 0 && (
+  <Dashboard data={dadosCarregados} />
+)}
