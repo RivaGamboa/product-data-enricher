@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Shield, Database, User, LogOut, Save, Loader2, History } from 'lucide-react';
+import { Shield, Database, User, LogOut, Save, Loader2, History, Sparkles } from 'lucide-react';
 import { Toaster } from '@/components/ui/toaster';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
@@ -212,6 +212,12 @@ const Index = () => {
                     columnConfig={columnConfig}
                     onImport={handleImportPreset}
                   />
+                  <Link to="/ultradata">
+                    <Button variant="default" size="sm" className="bg-gradient-to-r from-primary to-primary/80">
+                      <Sparkles className="h-4 w-4" />
+                      <span className="hidden sm:inline ml-2">UltraData</span>
+                    </Button>
+                  </Link>
                   <Link to="/history">
                     <Button variant="outline" size="sm">
                       <History className="h-4 w-4" />
