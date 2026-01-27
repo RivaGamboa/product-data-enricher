@@ -246,6 +246,77 @@ export type Database = {
         }
         Relationships: []
       }
+      produtos_processados: {
+        Row: {
+          categoria_inferida: string | null
+          created_at: string
+          descricao_enriquecida: string | null
+          id: string
+          marca_inferida: string | null
+          metadata: Json | null
+          modelo_ia: string | null
+          necessita_revisao: boolean
+          nome_padronizado: string | null
+          origem_inferida: string | null
+          produto_original: Json
+          razao_revisao: string | null
+          session_id: string | null
+          tempo_processamento_ms: number | null
+          updated_at: string
+          user_id: string
+          validado: boolean
+          validado_em: string | null
+        }
+        Insert: {
+          categoria_inferida?: string | null
+          created_at?: string
+          descricao_enriquecida?: string | null
+          id?: string
+          marca_inferida?: string | null
+          metadata?: Json | null
+          modelo_ia?: string | null
+          necessita_revisao?: boolean
+          nome_padronizado?: string | null
+          origem_inferida?: string | null
+          produto_original: Json
+          razao_revisao?: string | null
+          session_id?: string | null
+          tempo_processamento_ms?: number | null
+          updated_at?: string
+          user_id: string
+          validado?: boolean
+          validado_em?: string | null
+        }
+        Update: {
+          categoria_inferida?: string | null
+          created_at?: string
+          descricao_enriquecida?: string | null
+          id?: string
+          marca_inferida?: string | null
+          metadata?: Json | null
+          modelo_ia?: string | null
+          necessita_revisao?: boolean
+          nome_padronizado?: string | null
+          origem_inferida?: string | null
+          produto_original?: Json
+          razao_revisao?: string | null
+          session_id?: string | null
+          tempo_processamento_ms?: number | null
+          updated_at?: string
+          user_id?: string
+          validado?: boolean
+          validado_em?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "produtos_processados_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "product_enrichment_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           created_at: string
