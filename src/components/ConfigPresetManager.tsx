@@ -131,9 +131,12 @@ export function ConfigPresetManager({
         </DialogHeader>
 
         <div className="space-y-6 py-4">
-          {/* Export Section */}
+          {/* Save/Export Section */}
           <div className="space-y-3">
-            <h4 className="font-medium text-sm">Exportar Configuração</h4>
+            <h4 className="font-medium text-sm">💾 Salvar Configuração Atual</h4>
+            <p className="text-xs text-muted-foreground">
+              Salve suas configurações como um arquivo JSON para usar depois ou compartilhar.
+            </p>
             <div className="space-y-2">
               <Label htmlFor="preset-name">Nome do Preset</Label>
               <Input
@@ -143,12 +146,12 @@ export function ConfigPresetManager({
                 placeholder="Ex: Padrão Bling"
               />
             </div>
-            <div className="text-xs text-muted-foreground">
-              Será exportado: {abbreviationCount} abreviações, {columnConfigCount} configurações de coluna
+            <div className="text-xs text-muted-foreground bg-muted/50 p-2 rounded">
+              📦 Será salvo: {abbreviationCount} abreviações, {columnConfigCount} configurações de coluna
             </div>
-            <Button onClick={handleExport} className="w-full gap-2">
+            <Button onClick={handleExport} className="w-full gap-2" size="lg">
               <Download className="h-4 w-4" />
-              Exportar como JSON
+              Salvar Preset como Arquivo
             </Button>
           </div>
 
@@ -163,9 +166,9 @@ export function ConfigPresetManager({
 
           {/* Import Section */}
           <div className="space-y-3">
-            <h4 className="font-medium text-sm">Importar Configuração</h4>
+            <h4 className="font-medium text-sm">📂 Carregar Preset Salvo</h4>
             <p className="text-xs text-muted-foreground">
-              Selecione um arquivo JSON exportado anteriormente para aplicar as configurações.
+              Selecione um arquivo JSON salvo anteriormente para aplicar as configurações.
             </p>
             <input
               ref={fileInputRef}
@@ -181,7 +184,7 @@ export function ConfigPresetManager({
               onClick={() => fileInputRef.current?.click()}
             >
               <Upload className="h-4 w-4" />
-              Selecionar Arquivo JSON
+              Selecionar Arquivo de Preset
             </Button>
           </div>
         </div>
