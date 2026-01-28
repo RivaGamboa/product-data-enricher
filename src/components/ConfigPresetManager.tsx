@@ -10,9 +10,14 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
-import { Download, Upload, Settings2, FileJson } from 'lucide-react';
+import { useUserPresets, type UserPreset } from '@/hooks/useUserPresets';
+import { useAuth } from '@/hooks/useAuth';
+import { Download, Upload, Settings2, Cloud, HardDrive, Trash2, Loader2, Check } from 'lucide-react';
 import type { ColumnConfig } from '@/utils/dataProcessors';
+import { format } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 
 interface ConfigPreset {
   name: string;
@@ -35,10 +40,13 @@ export function ConfigPresetManager({
 }: ConfigPresetManagerProps) {
   const [open, setOpen] = useState(false);
   const [presetName, setPresetName] = useState('Minha Configuração');
+  const [activeTab, setActiveTab] = useState('cloud');
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
+  const { user } = useAuth();
+  const { presets, loading, saving, savePreset, deletePreset } = useUserPresets();
 
-  const handleExport = () => {
+  const handleExportFile = () => {
     const preset: ConfigPreset = {
       name: presetName || 'Configuração Exportada',
       version: '1.0',
@@ -58,12 +66,12 @@ export function ConfigPresetManager({
     URL.revokeObjectURL(url);
 
     toast({
-      title: 'Configuração exportada',
+      title: 'Arquivo exportado',
       description: `O preset "${presetName}" foi salvo como arquivo JSON.`
     });
   };
 
-  const handleImport = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImportFile = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
@@ -73,20 +81,18 @@ export function ConfigPresetManager({
         const content = e.target?.result as string;
         const preset = JSON.parse(content) as ConfigPreset;
 
-        // Validate preset structure
         if (!preset.abbreviations || typeof preset.abbreviations !== 'object') {
           throw new Error('Arquivo inválido: abreviações não encontradas');
         }
 
         if (!preset.columnConfig || typeof preset.columnConfig !== 'object') {
-          // Column config is optional, use empty object if not present
           preset.columnConfig = {};
         }
 
         onImport(preset.abbreviations, preset.columnConfig);
         
         toast({
-          title: 'Configuração importada',
+          title: 'Configuração aplicada',
           description: `O preset "${preset.name || 'Importado'}" foi aplicado com sucesso.`
         });
 
@@ -102,9 +108,39 @@ export function ConfigPresetManager({
 
     reader.readAsText(file);
     
-    // Reset input so the same file can be selected again
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
+    }
+  };
+
+  const handleSaveToCloud = async () => {
+    if (!presetName.trim()) {
+      toast({
+        title: 'Nome obrigatório',
+        description: 'Digite um nome para o preset.',
+        variant: 'destructive'
+      });
+      return;
+    }
+
+    const success = await savePreset(presetName, abbreviations, columnConfig);
+    if (success) {
+      setPresetName('Minha Configuração');
+    }
+  };
+
+  const handleLoadFromCloud = (preset: UserPreset) => {
+    onImport(preset.abbreviations, preset.columnConfig);
+    toast({
+      title: 'Preset aplicado',
+      description: `"${preset.name}" foi carregado com sucesso.`
+    });
+    setOpen(false);
+  };
+
+  const handleDeletePreset = async (preset: UserPreset) => {
+    if (confirm(`Tem certeza que deseja excluir "${preset.name}"?`)) {
+      await deletePreset(preset.id);
     }
   };
 
@@ -119,75 +155,178 @@ export function ConfigPresetManager({
           Presets
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <FileJson className="h-5 w-5" />
+            <Settings2 className="h-5 w-5" />
             Gerenciar Presets
           </DialogTitle>
           <DialogDescription>
-            Exporte suas configurações para compartilhar ou importe presets de outros usuários.
+            Salve e carregue configurações na nuvem ou como arquivo.
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-6 py-4">
-          {/* Save/Export Section */}
-          <div className="space-y-3">
-            <h4 className="font-medium text-sm">💾 Salvar Configuração Atual</h4>
-            <p className="text-xs text-muted-foreground">
-              Salve suas configurações como um arquivo JSON para usar depois ou compartilhar.
-            </p>
-            <div className="space-y-2">
-              <Label htmlFor="preset-name">Nome do Preset</Label>
-              <Input
-                id="preset-name"
-                value={presetName}
-                onChange={(e) => setPresetName(e.target.value)}
-                placeholder="Ex: Padrão Bling"
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="mt-4">
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="cloud" className="gap-2">
+              <Cloud className="h-4 w-4" />
+              Nuvem
+            </TabsTrigger>
+            <TabsTrigger value="file" className="gap-2">
+              <HardDrive className="h-4 w-4" />
+              Arquivo
+            </TabsTrigger>
+          </TabsList>
+
+          {/* Cloud Tab */}
+          <TabsContent value="cloud" className="space-y-4 mt-4">
+            {!user ? (
+              <div className="text-center py-6 text-muted-foreground">
+                <Cloud className="h-12 w-12 mx-auto mb-3 opacity-50" />
+                <p className="font-medium">Faça login para usar presets na nuvem</p>
+                <p className="text-sm">Seus presets ficam sincronizados em todos os dispositivos.</p>
+              </div>
+            ) : (
+              <>
+                {/* Save to Cloud */}
+                <div className="space-y-3 p-4 bg-muted/30 rounded-lg border">
+                  <h4 className="font-medium text-sm flex items-center gap-2">
+                    <Cloud className="h-4 w-4 text-primary" />
+                    Salvar na Nuvem
+                  </h4>
+                  <div className="space-y-2">
+                    <Label htmlFor="cloud-preset-name">Nome do Preset</Label>
+                    <Input
+                      id="cloud-preset-name"
+                      value={presetName}
+                      onChange={(e) => setPresetName(e.target.value)}
+                      placeholder="Ex: Padrão Bling"
+                    />
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    📦 {abbreviationCount} abreviações, {columnConfigCount} configurações
+                  </div>
+                  <Button 
+                    onClick={handleSaveToCloud} 
+                    className="w-full gap-2" 
+                    disabled={saving}
+                  >
+                    {saving ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Cloud className="h-4 w-4" />
+                    )}
+                    {saving ? 'Salvando...' : 'Salvar na Nuvem'}
+                  </Button>
+                </div>
+
+                {/* Load from Cloud */}
+                <div className="space-y-3">
+                  <h4 className="font-medium text-sm">Seus Presets Salvos</h4>
+                  {loading ? (
+                    <div className="flex items-center justify-center py-8">
+                      <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                    </div>
+                  ) : presets.length === 0 ? (
+                    <div className="text-center py-6 text-muted-foreground text-sm">
+                      Nenhum preset salvo ainda.
+                    </div>
+                  ) : (
+                    <div className="space-y-2 max-h-[200px] overflow-y-auto">
+                      {presets.map((preset) => (
+                        <div 
+                          key={preset.id} 
+                          className="flex items-center justify-between p-3 bg-background border rounded-lg hover:bg-muted/50 transition-colors"
+                        >
+                          <div className="flex-1 min-w-0">
+                            <p className="font-medium truncate">{preset.name}</p>
+                            <p className="text-xs text-muted-foreground">
+                              Atualizado {format(new Date(preset.updatedAt), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-1 ml-2">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleLoadFromCloud(preset)}
+                              className="h-8 w-8 p-0"
+                              title="Aplicar este preset"
+                            >
+                              <Check className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleDeletePreset(preset)}
+                              className="h-8 w-8 p-0 text-destructive hover:text-destructive"
+                              title="Excluir preset"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
+          </TabsContent>
+
+          {/* File Tab */}
+          <TabsContent value="file" className="space-y-4 mt-4">
+            {/* Export to File */}
+            <div className="space-y-3 p-4 bg-muted/30 rounded-lg border">
+              <h4 className="font-medium text-sm flex items-center gap-2">
+                <Download className="h-4 w-4" />
+                Exportar como Arquivo
+              </h4>
+              <div className="space-y-2">
+                <Label htmlFor="file-preset-name">Nome do Preset</Label>
+                <Input
+                  id="file-preset-name"
+                  value={presetName}
+                  onChange={(e) => setPresetName(e.target.value)}
+                  placeholder="Ex: Padrão Bling"
+                />
+              </div>
+              <div className="text-xs text-muted-foreground">
+                📦 {abbreviationCount} abreviações, {columnConfigCount} configurações
+              </div>
+              <Button onClick={handleExportFile} variant="outline" className="w-full gap-2">
+                <Download className="h-4 w-4" />
+                Baixar Arquivo JSON
+              </Button>
+            </div>
+
+            {/* Import from File */}
+            <div className="space-y-3 p-4 bg-muted/30 rounded-lg border">
+              <h4 className="font-medium text-sm flex items-center gap-2">
+                <Upload className="h-4 w-4" />
+                Importar de Arquivo
+              </h4>
+              <p className="text-xs text-muted-foreground">
+                Selecione um arquivo JSON salvo anteriormente.
+              </p>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".json"
+                onChange={handleImportFile}
+                className="hidden"
+                id="preset-file"
               />
+              <Button
+                variant="outline"
+                className="w-full gap-2"
+                onClick={() => fileInputRef.current?.click()}
+              >
+                <Upload className="h-4 w-4" />
+                Selecionar Arquivo
+              </Button>
             </div>
-            <div className="text-xs text-muted-foreground bg-muted/50 p-2 rounded">
-              📦 Será salvo: {abbreviationCount} abreviações, {columnConfigCount} configurações de coluna
-            </div>
-            <Button onClick={handleExport} className="w-full gap-2" size="lg">
-              <Download className="h-4 w-4" />
-              Salvar Preset como Arquivo
-            </Button>
-          </div>
-
-          <div className="relative">
-            <div className="absolute inset-0 flex items-center">
-              <span className="w-full border-t" />
-            </div>
-            <div className="relative flex justify-center text-xs uppercase">
-              <span className="bg-background px-2 text-muted-foreground">ou</span>
-            </div>
-          </div>
-
-          {/* Import Section */}
-          <div className="space-y-3">
-            <h4 className="font-medium text-sm">📂 Carregar Preset Salvo</h4>
-            <p className="text-xs text-muted-foreground">
-              Selecione um arquivo JSON salvo anteriormente para aplicar as configurações.
-            </p>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept=".json"
-              onChange={handleImport}
-              className="hidden"
-              id="preset-file"
-            />
-            <Button
-              variant="outline"
-              className="w-full gap-2"
-              onClick={() => fileInputRef.current?.click()}
-            >
-              <Upload className="h-4 w-4" />
-              Selecionar Arquivo de Preset
-            </Button>
-          </div>
-        </div>
+          </TabsContent>
+        </Tabs>
       </DialogContent>
     </Dialog>
   );

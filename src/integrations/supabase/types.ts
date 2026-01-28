@@ -371,6 +371,36 @@ export type Database = {
         }
         Relationships: []
       }
+      user_presets: {
+        Row: {
+          abbreviations: Json
+          column_config: Json
+          created_at: string
+          id: string
+          name: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          abbreviations?: Json
+          column_config?: Json
+          created_at?: string
+          id?: string
+          name: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          abbreviations?: Json
+          column_config?: Json
+          created_at?: string
+          id?: string
+          name?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
