@@ -5,7 +5,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/ui/tooltip';
+import { ConfigPresetManager } from '@/components/ConfigPresetManager';
 import type { FieldConfig, ProductRow } from '@/pages/UltraData';
+import type { ColumnConfig } from '@/utils/dataProcessors';
 
 interface UltraDataFieldConfigProps {
   columns: string[];
@@ -46,14 +48,52 @@ const UltraDataFieldConfig = ({
 
   const activeConfigs = fieldConfigs.filter(fc => fc.action !== 'ignore');
 
+  // Convert fieldConfigs to columnConfig format for preset manager
+  const columnConfigForPreset: Record<string, ColumnConfig> = {};
+  fieldConfigs.forEach(fc => {
+    columnConfigForPreset[fc.column] = {
+      action: fc.action === 'analyze' ? 'analyze' : fc.action === 'fill_empty' ? 'default_empty' : fc.action === 'use_default' ? 'default_all' : 'ignore',
+      defaultValue: fc.defaultValue || '',
+      isProtected: fc.isLocked,
+    };
+  });
+
+  const handlePresetImport = (abbreviations: Record<string, string>, columnConfig: Record<string, ColumnConfig>) => {
+    // Apply imported column config to field configs
+    const updatedConfigs = fieldConfigs.map(fc => {
+      const imported = columnConfig[fc.column];
+      if (imported && !fc.isLocked) {
+        let action: FieldConfig['action'] = 'ignore';
+        if (imported.action === 'analyze') action = 'analyze';
+        else if (imported.action === 'default_empty') action = 'fill_empty';
+        else if (imported.action === 'default_all') action = 'use_default';
+        
+        return {
+          ...fc,
+          action,
+          defaultValue: imported.defaultValue || fc.defaultValue,
+        };
+      }
+      return fc;
+    });
+    onConfigChange(updatedConfigs);
+  };
+
   return (
     <TooltipProvider>
       <div className="space-y-6">
-        <div>
-          <h2 className="text-2xl font-bold text-foreground mb-2">Configuração de Campos</h2>
-          <p className="text-muted-foreground">
-            Defina como cada coluna será tratada pelo enriquecimento com IA.
-          </p>
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h2 className="text-2xl font-bold text-foreground mb-2">Configuração de Campos</h2>
+            <p className="text-muted-foreground">
+              Defina como cada coluna será tratada pelo enriquecimento com IA.
+            </p>
+          </div>
+          <ConfigPresetManager
+            abbreviations={{}}
+            columnConfig={columnConfigForPreset}
+            onImport={handlePresetImport}
+          />
         </div>
 
         {/* Summary */}
