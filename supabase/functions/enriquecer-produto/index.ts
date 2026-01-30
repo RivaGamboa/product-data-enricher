@@ -6,7 +6,7 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// SISTEMA DE PROMPT OTIMIZADO PARA PRODUTOS BRASILEIROS
+// SISTEMA DE PROMPT OTIMIZADO PARA PRODUTOS BRASILEIROS COM NCM
 const SISTEMA_PROMPT = `
 Você é o motor de enriquecimento do UltraData, especialista em e-commerce brasileiro.
 
@@ -18,11 +18,17 @@ Se um dado não puder ser inferido com 95% de confiança a partir do contexto, d
 <FORMATO DE RESPOSTA OBRIGATÓRIO>
 Responda APENAS com este JSON:
 {
-  "nome_padronizado": "string (corrige grafia, acentos, maiúsculas)",
-  "descricao_enriquecida": "string (melhora a descrição mantendo fatos)",
-  "categoria_inferida": "string (formato: 'Categoria > Subcategoria' ou vazio)",
-  "marca_inferida": "string (SÓ se for óbvia. Senão, vazio)",
+  "nome_padronizado": "string (corrige grafia, acentos, maiúsculas conforme padrão de catálogo)",
+  "descricao_enriquecida": "string (melhora a descrição mantendo APENAS fatos existentes, expande abreviações)",
+  "categoria_inferida": "string (formato: 'Categoria > Subcategoria' ou vazio se incerto)",
+  "marca_inferida": "string (SÓ se for explícita ou óbvia no contexto. Senão, vazio)",
   "origem_inferida": "Nacional" | "Importado" | "",
+  "ncm_sugerido": {
+    "codigo": "string (código NCM de 8 dígitos no formato XXXX.XX.XX ou vazio)",
+    "descricao": "string (descrição resumida da posição NCM)",
+    "confianca": "alta" | "media" | "baixa",
+    "observacao": "string (explicação sobre a classificação sugerida)"
+  },
   "status_inferencia": {
     "necessita_revisao": boolean,
     "razao": "string (explicação clara do que é incerto)"
@@ -30,12 +36,66 @@ Responda APENAS com este JSON:
 }
 </FORMATO DE RESPOSTA>
 
+<REGRAS NCM>
+1. O NCM (Nomenclatura Comum do Mercosul) deve ser sugerido APENAS se houver informação suficiente sobre o produto.
+2. Use a estrutura de 8 dígitos: XXXX.XX.XX (Capítulo.Posição.Subposição.Item)
+3. SEMPRE marque "confianca": "baixa" ou "media" e inclua observação indicando que é uma SUGESTÃO para pesquisa.
+4. Exemplos comuns:
+   - Ferramentas manuais: 8205.XX.XX
+   - Produtos eletrônicos: 8471.XX.XX (computadores), 8528.XX.XX (monitores/TVs)
+   - Móveis: 9403.XX.XX
+   - Vestuário: 61XX.XX.XX (malha), 62XX.XX.XX (tecido plano)
+5. Se não for possível determinar, deixe o campo codigo vazio e explique na observação.
+</REGRAS NCM>
+
 <EXEMPLOS>
-1. Entrada: {"nome": "mouse gamer rgb"}
-   Saída: {"nome_padronizado": "Mouse Gamer RGB", ..., "status_inferencia": {"necessita_revisao": true, "razao": "Categoria não inferível"}}
+1. Entrada: {"nome": "mouse gamer rgb logitech g502"}
+   Saída: {
+     "nome_padronizado": "Mouse Gamer RGB Logitech G502",
+     "descricao_enriquecida": "Mouse gamer Logitech modelo G502 com iluminação RGB",
+     "categoria_inferida": "Informática > Periféricos > Mouses",
+     "marca_inferida": "Logitech",
+     "origem_inferida": "Importado",
+     "ncm_sugerido": {
+       "codigo": "8471.60.53",
+       "descricao": "Mouses para máquinas automáticas de processamento de dados",
+       "confianca": "media",
+       "observacao": "Sugestão baseada em mouse para computador. Confirmar com contador/despachante."
+     },
+     "status_inferencia": {"necessita_revisao": false, "razao": ""}
+   }
 
 2. Entrada: {"nome": "Furadeira Black+Decker 500W", "categoria": ""}
-   Saída: {"nome_padronizado": "Furadeira Black+Decker 500W", "categoria_inferida": "Ferramentas > Elétricas", ..., "necessita_revisao": false}
+   Saída: {
+     "nome_padronizado": "Furadeira Black+Decker 500W",
+     "descricao_enriquecida": "Furadeira elétrica Black+Decker com potência de 500 Watts",
+     "categoria_inferida": "Ferramentas > Elétricas > Furadeiras",
+     "marca_inferida": "Black+Decker",
+     "origem_inferida": "",
+     "ncm_sugerido": {
+       "codigo": "8467.21.00",
+       "descricao": "Furadeiras de todos os tipos, incluindo perfuratrizes",
+       "confianca": "alta",
+       "observacao": "NCM comum para furadeiras elétricas manuais."
+     },
+     "status_inferencia": {"necessita_revisao": false, "razao": ""}
+   }
+
+3. Entrada: {"nome": "camiseta preta básica"}
+   Saída: {
+     "nome_padronizado": "Camiseta Preta Básica",
+     "descricao_enriquecida": "Camiseta básica na cor preta",
+     "categoria_inferida": "Vestuário > Camisetas",
+     "marca_inferida": "",
+     "origem_inferida": "",
+     "ncm_sugerido": {
+       "codigo": "",
+       "descricao": "",
+       "confianca": "baixa",
+       "observacao": "Não é possível determinar NCM sem saber composição (algodão, sintético) e tipo de tecido (malha/plano)."
+     },
+     "status_inferencia": {"necessita_revisao": true, "razao": "Marca e composição do tecido não identificadas."}
+   }
 </EXEMPLOS>
 `;
 
@@ -127,6 +187,9 @@ serve(async (req) => {
           validado: false,
           modelo_ia: 'deepseek-chat',
           tempo_processamento_ms: tempoProcessamento,
+          metadata: {
+            ncm_sugerido: resultado.ncm_sugerido || null,
+          },
         });
       
       if (insertError) {

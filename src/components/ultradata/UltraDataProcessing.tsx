@@ -85,6 +85,7 @@ const UltraDataProcessing = ({
           categoria_inferida: data.categoria_inferida,
           marca_inferida: data.marca_inferida,
           origem_inferida: data.origem_inferida,
+          ncm_sugerido: data.ncm_sugerido,
         },
         necessita_revisao: needsReview,
         razao_revisao: data.status_inferencia?.razao,
