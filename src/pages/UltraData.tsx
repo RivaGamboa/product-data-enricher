@@ -22,6 +22,13 @@ export interface FieldConfig {
   isLocked: boolean;
 }
 
+export interface NcmSugerido {
+  codigo: string;
+  descricao: string;
+  confianca: 'alta' | 'media' | 'baixa';
+  observacao: string;
+}
+
 export interface ProcessedProduct {
   original: ProductRow;
   enriched: {
@@ -30,6 +37,7 @@ export interface ProcessedProduct {
     categoria_inferida?: string;
     marca_inferida?: string;
     origem_inferida?: string;
+    ncm_sugerido?: NcmSugerido;
   };
   necessita_revisao: boolean;
   razao_revisao?: string;

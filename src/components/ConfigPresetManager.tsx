@@ -14,10 +14,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import { useUserPresets, type UserPreset } from '@/hooks/useUserPresets';
 import { useAuth } from '@/hooks/useAuth';
-import { Download, Upload, Settings2, Cloud, HardDrive, Trash2, Loader2, Check } from 'lucide-react';
+import { Download, Upload, Settings2, Cloud, HardDrive, Trash2, Loader2, Check, Sparkles, Package } from 'lucide-react';
 import type { ColumnConfig } from '@/utils/dataProcessors';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { BUILTIN_PRESETS, applyPresetToColumns, type PresetDefinition } from '@/data/blingPreset';
 
 interface ConfigPreset {
   name: string;
@@ -31,16 +32,18 @@ interface ConfigPresetManagerProps {
   abbreviations: Record<string, string>;
   columnConfig: Record<string, ColumnConfig>;
   onImport: (abbreviations: Record<string, string>, columnConfig: Record<string, ColumnConfig>) => void;
+  detectedColumns?: string[]; // Para aplicar preset inteligente
 }
 
 export function ConfigPresetManager({ 
   abbreviations, 
   columnConfig, 
-  onImport 
+  onImport,
+  detectedColumns = [],
 }: ConfigPresetManagerProps) {
   const [open, setOpen] = useState(false);
   const [presetName, setPresetName] = useState('Minha Configuração');
-  const [activeTab, setActiveTab] = useState('cloud');
+  const [activeTab, setActiveTab] = useState('builtin');
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   const { user } = useAuth();
@@ -144,6 +147,23 @@ export function ConfigPresetManager({
     }
   };
 
+  // Aplicar preset pré-definido
+  const handleApplyBuiltinPreset = (preset: PresetDefinition) => {
+    // Se temos colunas detectadas, aplicar mapeamento inteligente
+    if (detectedColumns.length > 0) {
+      const mappedConfig = applyPresetToColumns(detectedColumns, preset);
+      onImport(preset.abbreviations, mappedConfig);
+    } else {
+      onImport(preset.abbreviations, preset.columnConfig);
+    }
+    
+    toast({
+      title: 'Preset aplicado',
+      description: `"${preset.name}" foi aplicado. ${detectedColumns.length > 0 ? `${detectedColumns.length} colunas mapeadas.` : ''}`
+    });
+    setOpen(false);
+  };
+
   const abbreviationCount = Object.keys(abbreviations).length;
   const columnConfigCount = Object.keys(columnConfig).length;
 
@@ -162,21 +182,82 @@ export function ConfigPresetManager({
             Gerenciar Presets
           </DialogTitle>
           <DialogDescription>
-            Salve e carregue configurações na nuvem ou como arquivo.
+            Carregue configurações prontas ou salve suas próprias.
           </DialogDescription>
         </DialogHeader>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="mt-4">
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="cloud" className="gap-2">
-              <Cloud className="h-4 w-4" />
-              Nuvem
+          <TabsList className="grid w-full grid-cols-3">
+            <TabsTrigger value="builtin" className="gap-2 text-xs sm:text-sm">
+              <Sparkles className="h-4 w-4" />
+              <span className="hidden sm:inline">Prontos</span>
             </TabsTrigger>
-            <TabsTrigger value="file" className="gap-2">
+            <TabsTrigger value="cloud" className="gap-2 text-xs sm:text-sm">
+              <Cloud className="h-4 w-4" />
+              <span className="hidden sm:inline">Nuvem</span>
+            </TabsTrigger>
+            <TabsTrigger value="file" className="gap-2 text-xs sm:text-sm">
               <HardDrive className="h-4 w-4" />
-              Arquivo
+              <span className="hidden sm:inline">Arquivo</span>
             </TabsTrigger>
           </TabsList>
+
+          {/* Built-in Presets Tab */}
+          <TabsContent value="builtin" className="space-y-4 mt-4">
+            <div className="space-y-3">
+              <h4 className="font-medium text-sm flex items-center gap-2">
+                <Package className="h-4 w-4 text-primary" />
+                Presets Pré-definidos
+              </h4>
+              <p className="text-xs text-muted-foreground">
+                Configurações otimizadas para planilhas comuns.
+              </p>
+              
+              <div className="space-y-2">
+                {BUILTIN_PRESETS.map((preset) => (
+                  <div 
+                    key={preset.id}
+                    className="p-4 bg-gradient-to-r from-primary/5 to-primary/10 border border-primary/20 rounded-lg hover:border-primary/40 transition-colors"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                          <Sparkles className="h-4 w-4 text-primary" />
+                          <p className="font-semibold text-foreground">{preset.name}</p>
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          {preset.description}
+                        </p>
+                        <div className="flex gap-2 mt-2">
+                          <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded">
+                            {Object.keys(preset.columnConfig).length} colunas
+                          </span>
+                          <span className="text-xs bg-muted text-muted-foreground px-2 py-0.5 rounded">
+                            {Object.keys(preset.abbreviations).length} abreviações
+                          </span>
+                        </div>
+                      </div>
+                      <Button
+                        size="sm"
+                        onClick={() => handleApplyBuiltinPreset(preset)}
+                        className="flex-shrink-0"
+                      >
+                        <Check className="h-4 w-4 mr-1" />
+                        Aplicar
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              
+              {detectedColumns.length > 0 && (
+                <div className="p-3 bg-muted/50 rounded-lg text-xs text-muted-foreground">
+                  ✨ {detectedColumns.length} colunas detectadas na planilha. 
+                  O preset será aplicado com mapeamento inteligente.
+                </div>
+              )}
+            </div>
+          </TabsContent>
 
           {/* Cloud Tab */}
           <TabsContent value="cloud" className="space-y-4 mt-4">

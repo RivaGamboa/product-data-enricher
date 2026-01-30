@@ -93,6 +93,7 @@ const UltraDataFieldConfig = ({
             abbreviations={{}}
             columnConfig={columnConfigForPreset}
             onImport={handlePresetImport}
+            detectedColumns={columns}
           />
         </div>
 
