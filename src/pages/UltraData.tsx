@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowLeft, Upload, Settings2, Sparkles, CheckCircle } from 'lucide-react';
+import { ArrowLeft, Upload, Settings2, Sparkles, CheckCircle, SpellCheck } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Toaster } from '@/components/ui/toaster';
@@ -10,6 +10,7 @@ import UltraDataUpload from '@/components/ultradata/UltraDataUpload';
 import UltraDataFieldConfig from '@/components/ultradata/UltraDataFieldConfig';
 import UltraDataProcessing from '@/components/ultradata/UltraDataProcessing';
 import UltraDataValidation from '@/components/ultradata/UltraDataValidation';
+import UltraDataTextCorrection from '@/components/ultradata/UltraDataTextCorrection';
 
 export interface ProductRow {
   [key: string]: string | number | null;
@@ -85,6 +86,10 @@ const UltraData = () => {
     setProcessedProducts(validatedProducts);
   };
 
+  const handleDataUpdate = (updatedData: ProductRow[]) => {
+    setRawData(updatedData);
+  };
+
   const canProceedToProcessing = rawData.length > 0 && fieldConfigs.some(f => f.action !== 'ignore');
   const canProceedToValidation = processedProducts.length > 0;
 
@@ -134,7 +139,7 @@ const UltraData = () => {
 
       <main className="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-4 h-auto p-1">
+          <TabsList className="grid w-full grid-cols-5 h-auto p-1">
             <TabsTrigger 
               value="upload" 
               className="flex items-center gap-2 py-3"
@@ -149,6 +154,14 @@ const UltraData = () => {
             >
               <Settings2 className="h-4 w-4" />
               <span className="hidden sm:inline">Configurar</span>
+            </TabsTrigger>
+            <TabsTrigger 
+              value="text-correction" 
+              disabled={!canProceedToProcessing}
+              className="flex items-center gap-2 py-3"
+            >
+              <SpellCheck className="h-4 w-4" />
+              <span className="hidden sm:inline">Corrigir</span>
             </TabsTrigger>
             <TabsTrigger 
               value="processing" 
@@ -181,9 +194,18 @@ const UltraData = () => {
                 sampleData={rawData.slice(0, 5)}
                 onNext={() => {
                   if (requireAuth()) {
-                    setActiveTab('processing');
+                    setActiveTab('text-correction');
                   }
                 }}
+              />
+            </TabsContent>
+
+            <TabsContent value="text-correction" className="mt-0">
+              <UltraDataTextCorrection
+                rawData={rawData}
+                columns={columns}
+                fieldConfigs={fieldConfigs}
+                onDataUpdate={handleDataUpdate}
               />
             </TabsContent>
 
