@@ -9,13 +9,16 @@ import {
   ChevronRight,
   Eye,
   EyeOff,
-  RotateCcw
+  RotateCcw,
+  Pencil,
+  Undo2
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { Progress } from '@/components/ui/progress';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { useToast } from '@/hooks/use-toast';
@@ -35,6 +38,7 @@ interface TextCorrection {
   column: string;
   original: string;
   corrected: string;
+  manualEdit?: string; // Texto editado manualmente
   alterations: Array<{
     original: string;
     corrigido: string;
@@ -42,6 +46,7 @@ interface TextCorrection {
   }>;
   source: 'abbreviation' | 'spelling';
   accepted: boolean | null; // null = pending, true = accepted, false = rejected
+  isEditing?: boolean; // Flag para modo de edição
 }
 
 const UltraDataTextCorrection = ({
@@ -248,7 +253,42 @@ const UltraDataTextCorrection = ({
   // Aceitar/Rejeitar correção individual
   const handleCorrectionDecision = (index: number, accepted: boolean) => {
     setCorrections(prev => prev.map((c, i) => 
-      i === index ? { ...c, accepted } : c
+      i === index ? { ...c, accepted, isEditing: false } : c
+    ));
+  };
+
+  // Ativar modo de edição
+  const handleStartEditing = (index: number) => {
+    setCorrections(prev => prev.map((c, i) => 
+      i === index ? { ...c, isEditing: true, manualEdit: c.manualEdit ?? c.corrected } : c
+    ));
+  };
+
+  // Atualizar texto editado manualmente
+  const handleManualEditChange = (index: number, newText: string) => {
+    setCorrections(prev => prev.map((c, i) => 
+      i === index ? { ...c, manualEdit: newText } : c
+    ));
+  };
+
+  // Confirmar edição manual e aceitar
+  const handleConfirmEdit = (index: number) => {
+    setCorrections(prev => prev.map((c, i) => 
+      i === index ? { ...c, corrected: c.manualEdit ?? c.corrected, isEditing: false, accepted: true } : c
+    ));
+  };
+
+  // Cancelar edição
+  const handleCancelEdit = (index: number) => {
+    setCorrections(prev => prev.map((c, i) => 
+      i === index ? { ...c, isEditing: false, manualEdit: undefined } : c
+    ));
+  };
+
+  // Restaurar texto corrigido original
+  const handleRestoreOriginalCorrection = (index: number, originalCorrected: string) => {
+    setCorrections(prev => prev.map((c, i) => 
+      i === index ? { ...c, manualEdit: originalCorrected } : c
     ));
   };
 
@@ -266,7 +306,7 @@ const UltraDataTextCorrection = ({
     ));
   };
 
-  // Aplicar correções aceitas aos dados
+  // Aplicar correções aceitas aos dados (usa manualEdit se disponível)
   const handleApplyCorrections = () => {
     const acceptedCorrections = corrections.filter(c => c.accepted === true);
     
@@ -282,9 +322,11 @@ const UltraDataTextCorrection = ({
     const newData = [...rawData];
     
     acceptedCorrections.forEach(correction => {
+      // Usa o texto editado manualmente se existir, senão usa o corrigido
+      const finalText = correction.manualEdit ?? correction.corrected;
       newData[correction.rowIndex] = {
         ...newData[correction.rowIndex],
-        [correction.column]: correction.corrected,
+        [correction.column]: finalText,
       };
     });
 
@@ -517,14 +559,75 @@ const UltraDataTextCorrection = ({
                           <p className="text-xs font-medium text-destructive mb-1">Antes:</p>
                           <p className="text-sm text-foreground">{correction.original}</p>
                         </div>
-                        <div className="p-2 bg-success/10 rounded border border-success/20">
-                          <p className="text-xs font-medium text-success mb-1">Depois:</p>
-                          <p className="text-sm text-foreground">{correction.corrected}</p>
-                        </div>
+                        
+                        {/* Campo de edição inline ou visualização */}
+                        {correction.isEditing ? (
+                          <div className="p-2 bg-primary/10 rounded border border-primary/30 space-y-2">
+                            <div className="flex items-center justify-between">
+                              <p className="text-xs font-medium text-primary">Editar:</p>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="h-6 px-2 text-xs"
+                                onClick={() => handleRestoreOriginalCorrection(idx, correction.corrected)}
+                              >
+                                <Undo2 className="h-3 w-3 mr-1" />
+                                Restaurar
+                              </Button>
+                            </div>
+                            <Textarea
+                              value={correction.manualEdit ?? correction.corrected}
+                              onChange={(e) => handleManualEditChange(idx, e.target.value)}
+                              className="text-sm min-h-[60px] resize-none"
+                              autoFocus
+                            />
+                            <div className="flex gap-2">
+                              <Button
+                                size="sm"
+                                onClick={() => handleConfirmEdit(idx)}
+                                className="flex-1 bg-success hover:bg-success/90"
+                              >
+                                <Check className="h-3 w-3 mr-1" />
+                                Confirmar
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleCancelEdit(idx)}
+                              >
+                                Cancelar
+                              </Button>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="p-2 bg-success/10 rounded border border-success/20">
+                            <div className="flex items-center justify-between mb-1">
+                              <p className="text-xs font-medium text-success">
+                                {correction.manualEdit ? 'Editado:' : 'Depois:'}
+                              </p>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="h-5 px-1.5 text-xs text-muted-foreground hover:text-foreground"
+                                onClick={() => handleStartEditing(idx)}
+                              >
+                                <Pencil className="h-3 w-3" />
+                              </Button>
+                            </div>
+                            <p className="text-sm text-foreground">
+                              {correction.manualEdit ?? correction.corrected}
+                            </p>
+                            {correction.manualEdit && correction.manualEdit !== correction.corrected && (
+                              <p className="text-xs text-muted-foreground mt-1 italic">
+                                (Sugestão original: {correction.corrected.substring(0, 50)}...)
+                              </p>
+                            )}
+                          </div>
+                        )}
                       </div>
 
                       {/* Alterações detalhadas */}
-                      {correction.alterations.length > 0 && (
+                      {correction.alterations.length > 0 && !correction.isEditing && (
                         <div className="flex flex-wrap gap-1">
                           {correction.alterations.map((alt, i) => (
                             <Badge key={i} variant="outline" className="text-xs">
@@ -538,23 +641,35 @@ const UltraDataTextCorrection = ({
                     </div>
 
                     {/* Ações */}
-                    <div className="flex flex-col gap-1">
-                      <Button
-                        size="sm"
-                        variant={correction.accepted === true ? 'default' : 'outline'}
-                        className={correction.accepted === true ? 'bg-success hover:bg-success/90' : ''}
-                        onClick={() => handleCorrectionDecision(idx, true)}
-                      >
-                        <Check className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant={correction.accepted === false ? 'destructive' : 'outline'}
-                        onClick={() => handleCorrectionDecision(idx, false)}
-                      >
-                        <X className="h-4 w-4" />
-                      </Button>
-                    </div>
+                    {!correction.isEditing && (
+                      <div className="flex flex-col gap-1">
+                        <Button
+                          size="sm"
+                          variant={correction.accepted === true ? 'default' : 'outline'}
+                          className={correction.accepted === true ? 'bg-success hover:bg-success/90' : ''}
+                          onClick={() => handleCorrectionDecision(idx, true)}
+                          title="Aceitar correção"
+                        >
+                          <Check className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleStartEditing(idx)}
+                          title="Editar manualmente"
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant={correction.accepted === false ? 'destructive' : 'outline'}
+                          onClick={() => handleCorrectionDecision(idx, false)}
+                          title="Rejeitar correção"
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    )}
                   </div>
                 </div>
               ))}
