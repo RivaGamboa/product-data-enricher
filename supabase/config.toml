@@ -8,3 +8,6 @@ verify_jwt = false
 
 [functions.enriquecer-produto]
 verify_jwt = false
+
+[functions.corrigir-texto]
+verify_jwt = false
