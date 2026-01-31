@@ -11,7 +11,8 @@ import {
   EyeOff,
   RotateCcw,
   Pencil,
-  Undo2
+  Undo2,
+  BookA
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -23,7 +24,7 @@ import { Progress } from '@/components/ui/progress';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import { BLING_ABBREVIATIONS } from '@/data/blingPreset';
+import { useUserAbbreviations } from '@/hooks/useUserAbbreviations';
 import type { ProductRow, FieldConfig } from '@/pages/UltraData';
 
 interface UltraDataTextCorrectionProps {
@@ -56,6 +57,7 @@ const UltraDataTextCorrection = ({
   onDataUpdate,
 }: UltraDataTextCorrectionProps) => {
   const { toast } = useToast();
+  const { abbreviations, loading: loadingAbbreviations } = useUserAbbreviations();
   
   const [corrections, setCorrections] = useState<TextCorrection[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -125,7 +127,7 @@ const UltraDataTextCorrection = ({
         const originalText = row[column]?.toString() || '';
         
         if (originalText.trim()) {
-          const { expanded, changes } = expandAbbreviations(originalText, BLING_ABBREVIATIONS);
+          const { expanded, changes } = expandAbbreviations(originalText, abbreviations);
           
           if (changes.length > 0) {
             newCorrections.push({
@@ -408,11 +410,23 @@ const UltraDataTextCorrection = ({
         </div>
       </div>
 
+      {/* Info sobre abreviações */}
+      <div className="flex items-center gap-3 p-3 bg-muted/30 rounded-lg border border-border">
+        <BookA className="h-4 w-4 text-muted-foreground" />
+        <span className="text-sm text-muted-foreground flex-1">
+          Usando <strong className="text-foreground">{Object.keys(abbreviations).length}</strong> abreviações 
+          da sua biblioteca personalizada.
+        </span>
+        {loadingAbbreviations && (
+          <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+        )}
+      </div>
+
       {/* Botões de ação */}
       <div className="flex flex-wrap gap-3">
         <Button 
           onClick={handleExpandAbbreviations}
-          disabled={isProcessing || textColumns.length === 0}
+          disabled={isProcessing || textColumns.length === 0 || loadingAbbreviations}
           variant="outline"
           className="flex-1 min-w-[200px]"
         >
@@ -421,7 +435,7 @@ const UltraDataTextCorrection = ({
           ) : (
             <Wand2 className="h-4 w-4 mr-2" />
           )}
-          Expandir Abreviações
+          Expandir Abreviações ({Object.keys(abbreviations).length})
         </Button>
         
         <Button 
