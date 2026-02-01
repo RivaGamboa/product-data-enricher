@@ -15,6 +15,11 @@ interface UltraDataProcessingProps {
   isProcessing: boolean;
   setIsProcessing: (val: boolean) => void;
   onComplete: (products: ProcessedProduct[]) => void;
+  sessionId?: string | null;
+  onSessionUpdate?: (sessionId: string, updates: {
+    status?: 'pending' | 'processing' | 'paused' | 'completed' | 'failed';
+    itemsProcessed?: number;
+  }) => Promise<boolean>;
 }
 
 const UltraDataProcessing = ({
@@ -24,6 +29,8 @@ const UltraDataProcessing = ({
   isProcessing,
   setIsProcessing,
   onComplete,
+  sessionId,
+  onSessionUpdate,
 }: UltraDataProcessingProps) => {
   const { toast } = useToast();
   const [progress, setProgress] = useState(0);
@@ -115,6 +122,11 @@ const UltraDataProcessing = ({
     setLogs([]);
     abortRef.current = false;
 
+    // Update session status to processing
+    if (sessionId && onSessionUpdate) {
+      await onSessionUpdate(sessionId, { status: 'processing' });
+    }
+
     addLog('info', `Iniciando processamento de ${rawData.length} itens...`);
     addLog('info', `Colunas para análise: ${analyzeColumns.join(', ')}`);
 
@@ -157,20 +169,38 @@ const UltraDataProcessing = ({
     }
   };
 
-  const pauseProcessing = () => {
+  const pauseProcessing = async () => {
     setIsPaused(true);
     addLog('info', 'Processamento pausado');
+    
+    if (sessionId && onSessionUpdate) {
+      await onSessionUpdate(sessionId, { 
+        status: 'paused',
+        itemsProcessed: processedProducts.length,
+      });
+    }
   };
 
-  const resumeProcessing = () => {
+  const resumeProcessing = async () => {
     setIsPaused(false);
     addLog('info', 'Processamento retomado');
+    
+    if (sessionId && onSessionUpdate) {
+      await onSessionUpdate(sessionId, { status: 'processing' });
+    }
   };
 
-  const cancelProcessing = () => {
+  const cancelProcessing = async () => {
     abortRef.current = true;
     setIsPaused(false);
     setIsProcessing(false);
+    
+    if (sessionId && onSessionUpdate) {
+      await onSessionUpdate(sessionId, { 
+        status: 'failed',
+        itemsProcessed: processedProducts.length,
+      });
+    }
   };
 
   const logColors = {
