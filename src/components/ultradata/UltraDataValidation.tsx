@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { Check, AlertTriangle, Download, Filter, CheckCircle2, XCircle, FileText, FileDown, Settings2 } from 'lucide-react';
+import { Check, AlertTriangle, Download, Filter, CheckCircle2, XCircle, FileText, FileDown, Settings2, Eye, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
@@ -7,6 +7,8 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/ui/tooltip';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
@@ -22,6 +24,14 @@ interface ExportOptions {
   includeProcessingMetadata: boolean;
   onlyValidated: boolean;
   onlyNeedsReview: boolean;
+}
+
+type ExportType = 'all' | 'validated' | 'review' | 'selected';
+
+interface ExportPreviewState {
+  isOpen: boolean;
+  type: ExportType;
+  label: string;
 }
 
 interface UltraDataValidationProps {
@@ -40,6 +50,13 @@ const DEFAULT_EXPORT_OPTIONS: ExportOptions = {
   onlyNeedsReview: false,
 };
 
+const EXPORT_LABELS: Record<ExportType, string> = {
+  all: 'Todos os produtos',
+  validated: 'Apenas validados',
+  review: 'Pendentes de revisão',
+  selected: 'Selecionados',
+};
+
 const UltraDataValidation = ({
   processedProducts,
   columns,
@@ -49,6 +66,11 @@ const UltraDataValidation = ({
   const [filter, setFilter] = useState<'all' | 'review' | 'validated'>('all');
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [exportOptions, setExportOptions] = useState<ExportOptions>(DEFAULT_EXPORT_OPTIONS);
+  const [exportPreview, setExportPreview] = useState<ExportPreviewState>({
+    isOpen: false,
+    type: 'all',
+    label: 'Todos os produtos',
+  });
 
   const filteredProducts = useMemo(() => {
     return processedProducts.filter(p => {
@@ -152,29 +174,31 @@ const UltraDataValidation = ({
     });
   };
 
-  const exportToExcel = (exportType: 'all' | 'validated' | 'review' | 'selected') => {
-    let productsToExport: ProcessedProduct[] = [];
-    let filenamePrefix = 'ultradata';
-    
+  const getProductsForExport = (exportType: ExportType): ProcessedProduct[] => {
     switch (exportType) {
       case 'validated':
-        productsToExport = processedProducts.filter(p => p.validado);
-        filenamePrefix = 'ultradata_validados';
-        break;
+        return processedProducts.filter(p => p.validado);
       case 'review':
-        productsToExport = processedProducts.filter(p => p.necessita_revisao && !p.validado);
-        filenamePrefix = 'ultradata_revisar';
-        break;
+        return processedProducts.filter(p => p.necessita_revisao && !p.validado);
       case 'selected':
-        productsToExport = processedProducts.filter((_, i) => selectedIds.has(i));
-        filenamePrefix = 'ultradata_selecionados';
-        break;
+        return processedProducts.filter((_, i) => selectedIds.has(i));
       default:
-        productsToExport = processedProducts;
-        filenamePrefix = 'ultradata_completo';
+        return processedProducts;
     }
+  };
 
-    if (productsToExport.length === 0) {
+  const getFilenamePrefix = (exportType: ExportType): string => {
+    switch (exportType) {
+      case 'validated': return 'ultradata_validados';
+      case 'review': return 'ultradata_revisar';
+      case 'selected': return 'ultradata_selecionados';
+      default: return 'ultradata_completo';
+    }
+  };
+
+  const openExportPreview = (exportType: ExportType) => {
+    const products = getProductsForExport(exportType);
+    if (products.length === 0) {
       toast({
         title: "Nenhum produto para exportar",
         description: "Selecione produtos ou ajuste os filtros.",
@@ -182,13 +206,38 @@ const UltraDataValidation = ({
       });
       return;
     }
+    setExportPreview({
+      isOpen: true,
+      type: exportType,
+      label: EXPORT_LABELS[exportType],
+    });
+  };
 
-    const enrichedData = buildExportData(productsToExport, exportOptions);
+  const previewData = useMemo(() => {
+    if (!exportPreview.isOpen) return { products: [], data: [], columns: [] as string[] };
+    
+    const products = getProductsForExport(exportPreview.type);
+    const data = buildExportData(products, exportOptions);
+    const exportColumns = data.length > 0 ? Object.keys(data[0]) : [];
+    
+    return { products, data, columns: exportColumns };
+  }, [exportPreview.isOpen, exportPreview.type, exportOptions, processedProducts, selectedIds]);
 
-    const ws = XLSX.utils.json_to_sheet(enrichedData);
+  const confirmExport = () => {
+    const { products, data } = previewData;
+    
+    if (data.length === 0) {
+      toast({
+        title: "Nenhum dado para exportar",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const ws = XLSX.utils.json_to_sheet(data);
     
     // Auto-size columns
-    const colWidths = Object.keys(enrichedData[0] || {}).map(key => ({
+    const colWidths = Object.keys(data[0] || {}).map(key => ({
       wch: Math.max(key.length, 15)
     }));
     ws['!cols'] = colWidths;
@@ -200,12 +249,15 @@ const UltraDataValidation = ({
     const blob = new Blob([excelBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
     
     const timestamp = new Date().toISOString().slice(0, 10);
+    const filenamePrefix = getFilenamePrefix(exportPreview.type);
     saveAs(blob, `${filenamePrefix}_${timestamp}.xlsx`);
 
     toast({
       title: "Exportação concluída!",
-      description: `${productsToExport.length} produtos exportados com sucesso.`,
+      description: `${products.length} produtos exportados com sucesso.`,
     });
+    
+    setExportPreview(prev => ({ ...prev, isOpen: false }));
   };
 
   const getProductDisplayName = (product: ProcessedProduct, index: number): string => {
@@ -313,7 +365,7 @@ const UltraDataValidation = ({
             <Popover>
               <PopoverTrigger asChild>
                 <Button variant="outline">
-                  <Download className="h-4 w-4 mr-2" />
+                  <Eye className="h-4 w-4 mr-2" />
                   Exportar Excel
                   <FileDown className="h-4 w-4 ml-2" />
                 </Button>
@@ -323,15 +375,15 @@ const UltraDataValidation = ({
                   <Button 
                     variant="ghost" 
                     className="w-full justify-start" 
-                    onClick={() => exportToExcel('all')}
+                    onClick={() => openExportPreview('all')}
                   >
-                    <FileDown className="h-4 w-4 mr-2" />
+                    <Eye className="h-4 w-4 mr-2" />
                     Todos ({stats.total})
                   </Button>
                   <Button 
                     variant="ghost" 
                     className="w-full justify-start text-success" 
-                    onClick={() => exportToExcel('validated')}
+                    onClick={() => openExportPreview('validated')}
                     disabled={stats.validated === 0}
                   >
                     <CheckCircle2 className="h-4 w-4 mr-2" />
@@ -340,7 +392,7 @@ const UltraDataValidation = ({
                   <Button 
                     variant="ghost" 
                     className="w-full justify-start text-warning" 
-                    onClick={() => exportToExcel('review')}
+                    onClick={() => openExportPreview('review')}
                     disabled={stats.needsReview === 0}
                   >
                     <AlertTriangle className="h-4 w-4 mr-2" />
@@ -350,7 +402,7 @@ const UltraDataValidation = ({
                     <Button 
                       variant="ghost" 
                       className="w-full justify-start text-primary" 
-                      onClick={() => exportToExcel('selected')}
+                      onClick={() => openExportPreview('selected')}
                     >
                       <Check className="h-4 w-4 mr-2" />
                       Selecionados ({selectedIds.size})
@@ -361,6 +413,76 @@ const UltraDataValidation = ({
             </Popover>
           </div>
         </div>
+
+        {/* Export Preview Dialog */}
+        <Dialog open={exportPreview.isOpen} onOpenChange={(open) => setExportPreview(prev => ({ ...prev, isOpen: open }))}>
+          <DialogContent className="max-w-5xl max-h-[85vh] flex flex-col">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Eye className="h-5 w-5" />
+                Preview da Exportação
+              </DialogTitle>
+              <DialogDescription>
+                {exportPreview.label} - {previewData.products.length} produto(s) com {previewData.columns.length} coluna(s)
+              </DialogDescription>
+            </DialogHeader>
+            
+            <div className="flex-1 overflow-hidden">
+              <ScrollArea className="h-[400px] border rounded-lg">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="sticky left-0 bg-background z-10 font-bold">#</TableHead>
+                      {previewData.columns.map((col, idx) => (
+                        <TableHead key={idx} className="whitespace-nowrap text-xs font-medium">
+                          {col}
+                        </TableHead>
+                      ))}
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {previewData.data.slice(0, 50).map((row, rowIdx) => (
+                      <TableRow key={rowIdx}>
+                        <TableCell className="sticky left-0 bg-background z-10 font-mono text-xs text-muted-foreground">
+                          {rowIdx + 1}
+                        </TableCell>
+                        {previewData.columns.map((col, colIdx) => (
+                          <TableCell key={colIdx} className="max-w-[200px] truncate text-xs">
+                            {String(row[col] ?? '-')}
+                          </TableCell>
+                        ))}
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </ScrollArea>
+              
+              {previewData.data.length > 50 && (
+                <p className="text-xs text-muted-foreground mt-2 text-center">
+                  Mostrando primeiros 50 de {previewData.data.length} registros
+                </p>
+              )}
+            </div>
+
+            <div className="flex items-center justify-between pt-4 border-t">
+              <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                <span>{previewData.products.length} produtos</span>
+                <span>•</span>
+                <span>{previewData.columns.length} colunas</span>
+              </div>
+              <DialogFooter className="flex-row gap-2 sm:gap-2">
+                <Button variant="outline" onClick={() => setExportPreview(prev => ({ ...prev, isOpen: false }))}>
+                  <X className="h-4 w-4 mr-2" />
+                  Cancelar
+                </Button>
+                <Button onClick={confirmExport}>
+                  <Download className="h-4 w-4 mr-2" />
+                  Confirmar Download
+                </Button>
+              </DialogFooter>
+            </div>
+          </DialogContent>
+        </Dialog>
 
         {/* Filter Tabs */}
         <Tabs value={filter} onValueChange={(v) => setFilter(v as 'all' | 'review' | 'validated')}>
