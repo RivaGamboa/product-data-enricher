@@ -1,21 +1,44 @@
 import { useState, useMemo } from 'react';
-import { Check, AlertTriangle, Download, Filter, CheckCircle2, XCircle, FileText } from 'lucide-react';
+import { Check, AlertTriangle, Download, Filter, CheckCircle2, XCircle, FileText, FileDown, Settings2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/ui/tooltip';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Label } from '@/components/ui/label';
+import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
 import * as XLSX from 'xlsx';
 import { saveAs } from 'file-saver';
 import type { ProcessedProduct } from '@/pages/UltraData';
+
+interface ExportOptions {
+  includeOriginalColumns: boolean;
+  includeEnrichedColumns: boolean;
+  includeNcmDetails: boolean;
+  includeStatusColumns: boolean;
+  includeProcessingMetadata: boolean;
+  onlyValidated: boolean;
+  onlyNeedsReview: boolean;
+}
 
 interface UltraDataValidationProps {
   processedProducts: ProcessedProduct[];
   columns: string[];
   onValidationChange: (products: ProcessedProduct[]) => void;
 }
+
+const DEFAULT_EXPORT_OPTIONS: ExportOptions = {
+  includeOriginalColumns: true,
+  includeEnrichedColumns: true,
+  includeNcmDetails: true,
+  includeStatusColumns: true,
+  includeProcessingMetadata: false,
+  onlyValidated: false,
+  onlyNeedsReview: false,
+};
 
 const UltraDataValidation = ({
   processedProducts,
@@ -25,6 +48,7 @@ const UltraDataValidation = ({
   const { toast } = useToast();
   const [filter, setFilter] = useState<'all' | 'review' | 'validated'>('all');
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+  const [exportOptions, setExportOptions] = useState<ExportOptions>(DEFAULT_EXPORT_OPTIONS);
 
   const filteredProducts = useMemo(() => {
     return processedProducts.filter(p => {
@@ -83,35 +107,92 @@ const UltraDataValidation = ({
     setSelectedIds(new Set());
   };
 
-  const exportToExcel = () => {
-    // Build enriched data
-    const enrichedData = processedProducts.map(p => {
-      const row: Record<string, any> = { ...p.original };
+  const buildExportData = (products: ProcessedProduct[], options: ExportOptions) => {
+    return products.map((p, index) => {
+      const row: Record<string, unknown> = {};
       
-      // Add enriched fields
-      if (p.enriched.nome_padronizado) row['Nome Padronizado (IA)'] = p.enriched.nome_padronizado;
-      if (p.enriched.descricao_enriquecida) row['Descrição Enriquecida (IA)'] = p.enriched.descricao_enriquecida;
-      if (p.enriched.categoria_inferida) row['Categoria Inferida (IA)'] = p.enriched.categoria_inferida;
-      if (p.enriched.marca_inferida) row['Marca Inferida (IA)'] = p.enriched.marca_inferida;
-      if (p.enriched.origem_inferida) row['Origem Inferida (IA)'] = p.enriched.origem_inferida;
+      // Original columns
+      if (options.includeOriginalColumns) {
+        Object.entries(p.original).forEach(([key, value]) => {
+          row[key] = value;
+        });
+      }
       
-      // NCM Sugerido
-      if (p.enriched.ncm_sugerido?.codigo) {
+      // Enriched columns
+      if (options.includeEnrichedColumns) {
+        if (p.enriched.nome_padronizado) row['Nome Padronizado (IA)'] = p.enriched.nome_padronizado;
+        if (p.enriched.descricao_enriquecida) row['Descrição Enriquecida (IA)'] = p.enriched.descricao_enriquecida;
+        if (p.enriched.categoria_inferida) row['Categoria Inferida (IA)'] = p.enriched.categoria_inferida;
+        if (p.enriched.marca_inferida) row['Marca Inferida (IA)'] = p.enriched.marca_inferida;
+        if (p.enriched.origem_inferida) row['Origem Inferida (IA)'] = p.enriched.origem_inferida;
+      }
+      
+      // NCM Details
+      if (options.includeNcmDetails && p.enriched.ncm_sugerido?.codigo) {
         row['NCM Sugerido (IA)'] = p.enriched.ncm_sugerido.codigo;
         row['NCM Descrição'] = p.enriched.ncm_sugerido.descricao;
         row['NCM Confiança'] = p.enriched.ncm_sugerido.confianca;
         row['NCM Observação'] = p.enriched.ncm_sugerido.observacao;
       }
       
-      // Add status columns
-      row['Validado'] = p.validado ? 'Sim' : 'Não';
-      row['Necessita Revisão'] = p.necessita_revisao ? 'Sim' : 'Não';
-      if (p.razao_revisao) row['Razão Revisão'] = p.razao_revisao;
+      // Status columns
+      if (options.includeStatusColumns) {
+        row['Validado'] = p.validado ? 'Sim' : 'Não';
+        row['Necessita Revisão'] = p.necessita_revisao ? 'Sim' : 'Não';
+        if (p.razao_revisao) row['Razão Revisão'] = p.razao_revisao;
+      }
+      
+      // Processing metadata
+      if (options.includeProcessingMetadata) {
+        row['Índice Original'] = index + 1;
+        if (p.tempo_processamento_ms) row['Tempo Processamento (ms)'] = p.tempo_processamento_ms;
+      }
       
       return row;
     });
+  };
+
+  const exportToExcel = (exportType: 'all' | 'validated' | 'review' | 'selected') => {
+    let productsToExport: ProcessedProduct[] = [];
+    let filenamePrefix = 'ultradata';
+    
+    switch (exportType) {
+      case 'validated':
+        productsToExport = processedProducts.filter(p => p.validado);
+        filenamePrefix = 'ultradata_validados';
+        break;
+      case 'review':
+        productsToExport = processedProducts.filter(p => p.necessita_revisao && !p.validado);
+        filenamePrefix = 'ultradata_revisar';
+        break;
+      case 'selected':
+        productsToExport = processedProducts.filter((_, i) => selectedIds.has(i));
+        filenamePrefix = 'ultradata_selecionados';
+        break;
+      default:
+        productsToExport = processedProducts;
+        filenamePrefix = 'ultradata_completo';
+    }
+
+    if (productsToExport.length === 0) {
+      toast({
+        title: "Nenhum produto para exportar",
+        description: "Selecione produtos ou ajuste os filtros.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const enrichedData = buildExportData(productsToExport, exportOptions);
 
     const ws = XLSX.utils.json_to_sheet(enrichedData);
+    
+    // Auto-size columns
+    const colWidths = Object.keys(enrichedData[0] || {}).map(key => ({
+      wch: Math.max(key.length, 15)
+    }));
+    ws['!cols'] = colWidths;
+    
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Produtos Enriquecidos');
     
@@ -119,11 +200,11 @@ const UltraDataValidation = ({
     const blob = new Blob([excelBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
     
     const timestamp = new Date().toISOString().slice(0, 10);
-    saveAs(blob, `ultradata_enriquecido_${timestamp}.xlsx`);
+    saveAs(blob, `${filenamePrefix}_${timestamp}.xlsx`);
 
     toast({
       title: "Exportação concluída!",
-      description: "Arquivo Excel salvo com sucesso.",
+      description: `${productsToExport.length} produtos exportados com sucesso.`,
     });
   };
 
@@ -172,14 +253,117 @@ const UltraDataValidation = ({
 
           <div className="flex-1" />
 
-          <Button onClick={exportToExcel} variant="outline">
-            <Download className="h-4 w-4 mr-2" />
-            Exportar Excel
-          </Button>
+          {/* Export Options & Button */}
+          <div className="flex items-center gap-2">
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" size="icon">
+                  <Settings2 className="h-4 w-4" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-80" align="end">
+                <div className="space-y-4">
+                  <h4 className="font-medium text-sm">Opções de Exportação</h4>
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <Label htmlFor="includeOriginal" className="text-sm">Colunas originais</Label>
+                      <Switch 
+                        id="includeOriginal"
+                        checked={exportOptions.includeOriginalColumns}
+                        onCheckedChange={(checked) => setExportOptions(prev => ({ ...prev, includeOriginalColumns: checked }))}
+                      />
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <Label htmlFor="includeEnriched" className="text-sm">Colunas enriquecidas (IA)</Label>
+                      <Switch 
+                        id="includeEnriched"
+                        checked={exportOptions.includeEnrichedColumns}
+                        onCheckedChange={(checked) => setExportOptions(prev => ({ ...prev, includeEnrichedColumns: checked }))}
+                      />
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <Label htmlFor="includeNcm" className="text-sm">Detalhes NCM</Label>
+                      <Switch 
+                        id="includeNcm"
+                        checked={exportOptions.includeNcmDetails}
+                        onCheckedChange={(checked) => setExportOptions(prev => ({ ...prev, includeNcmDetails: checked }))}
+                      />
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <Label htmlFor="includeStatus" className="text-sm">Colunas de status</Label>
+                      <Switch 
+                        id="includeStatus"
+                        checked={exportOptions.includeStatusColumns}
+                        onCheckedChange={(checked) => setExportOptions(prev => ({ ...prev, includeStatusColumns: checked }))}
+                      />
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <Label htmlFor="includeMetadata" className="text-sm">Metadados de processamento</Label>
+                      <Switch 
+                        id="includeMetadata"
+                        checked={exportOptions.includeProcessingMetadata}
+                        onCheckedChange={(checked) => setExportOptions(prev => ({ ...prev, includeProcessingMetadata: checked }))}
+                      />
+                    </div>
+                  </div>
+                </div>
+              </PopoverContent>
+            </Popover>
+
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline">
+                  <Download className="h-4 w-4 mr-2" />
+                  Exportar Excel
+                  <FileDown className="h-4 w-4 ml-2" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-56" align="end">
+                <div className="space-y-2">
+                  <Button 
+                    variant="ghost" 
+                    className="w-full justify-start" 
+                    onClick={() => exportToExcel('all')}
+                  >
+                    <FileDown className="h-4 w-4 mr-2" />
+                    Todos ({stats.total})
+                  </Button>
+                  <Button 
+                    variant="ghost" 
+                    className="w-full justify-start text-success" 
+                    onClick={() => exportToExcel('validated')}
+                    disabled={stats.validated === 0}
+                  >
+                    <CheckCircle2 className="h-4 w-4 mr-2" />
+                    Apenas validados ({stats.validated})
+                  </Button>
+                  <Button 
+                    variant="ghost" 
+                    className="w-full justify-start text-warning" 
+                    onClick={() => exportToExcel('review')}
+                    disabled={stats.needsReview === 0}
+                  >
+                    <AlertTriangle className="h-4 w-4 mr-2" />
+                    Pendentes revisão ({stats.needsReview})
+                  </Button>
+                  {selectedIds.size > 0 && (
+                    <Button 
+                      variant="ghost" 
+                      className="w-full justify-start text-primary" 
+                      onClick={() => exportToExcel('selected')}
+                    >
+                      <Check className="h-4 w-4 mr-2" />
+                      Selecionados ({selectedIds.size})
+                    </Button>
+                  )}
+                </div>
+              </PopoverContent>
+            </Popover>
+          </div>
         </div>
 
         {/* Filter Tabs */}
-        <Tabs value={filter} onValueChange={(v) => setFilter(v as any)}>
+        <Tabs value={filter} onValueChange={(v) => setFilter(v as 'all' | 'review' | 'validated')}>
           <TabsList>
             <TabsTrigger value="all" className="flex items-center gap-2">
               <Filter className="h-4 w-4" />
@@ -195,8 +379,6 @@ const UltraDataValidation = ({
             </TabsTrigger>
           </TabsList>
         </Tabs>
-
-        {/* Bulk Actions */}
         <div className="flex items-center gap-3 py-2 px-3 bg-muted/50 rounded-lg">
           <span className="text-sm text-muted-foreground">
             {selectedIds.size} selecionados
