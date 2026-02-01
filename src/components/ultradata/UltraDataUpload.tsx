@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import type { ProductRow } from '@/pages/UltraData';
 
 interface UltraDataUploadProps {
-  onDataLoaded: (data: ProductRow[], columns: string[]) => void;
+  onDataLoaded: (data: ProductRow[], columns: string[], filename?: string) => void;
 }
 
 const UltraDataUpload = ({ onDataLoaded }: UltraDataUploadProps) => {
@@ -78,7 +78,7 @@ const UltraDataUpload = ({ onDataLoaded }: UltraDataUploadProps) => {
 
   const handleConfirm = () => {
     const fullData = (window as any).__ultradata_full_data || previewData;
-    onDataLoaded(fullData, columns);
+    onDataLoaded(fullData, columns, file?.name);
   };
 
   return (

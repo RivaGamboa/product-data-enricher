@@ -1,10 +1,11 @@
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowLeft, Upload, Settings2, Sparkles, CheckCircle, SpellCheck, BookA } from 'lucide-react';
+import { ArrowLeft, Upload, Settings2, Sparkles, CheckCircle, SpellCheck, BookA, History } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Toaster } from '@/components/ui/toaster';
 import { useAuth } from '@/hooks/useAuth';
+import { useSessionHistory, type SessionData } from '@/hooks/useSessionHistory';
 import { AuthModal } from '@/components/AuthModal';
 import UltraDataUpload from '@/components/ultradata/UltraDataUpload';
 import UltraDataFieldConfig from '@/components/ultradata/UltraDataFieldConfig';
@@ -12,6 +13,7 @@ import UltraDataProcessing from '@/components/ultradata/UltraDataProcessing';
 import UltraDataValidation from '@/components/ultradata/UltraDataValidation';
 import UltraDataTextCorrection from '@/components/ultradata/UltraDataTextCorrection';
 import UltraDataAbbreviations from '@/components/ultradata/UltraDataAbbreviations';
+import UltraDataSessionHistory from '@/components/ultradata/UltraDataSessionHistory';
 
 export interface ProductRow {
   [key: string]: string | number | null;
@@ -51,6 +53,17 @@ const UltraData = () => {
   const { user, loading: authLoading } = useAuth();
   const [showAuthModal, setShowAuthModal] = useState(false);
   
+  // Session management
+  const {
+    sessions,
+    loading: sessionsLoading,
+    createSession,
+    updateSession,
+    deleteSession,
+  } = useSessionHistory(user?.id);
+  const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
+  const [currentFilename, setCurrentFilename] = useState<string>('');
+  
   // Data state
   const [rawData, setRawData] = useState<ProductRow[]>([]);
   const [columns, setColumns] = useState<string[]>([]);
@@ -61,9 +74,23 @@ const UltraData = () => {
   const [activeTab, setActiveTab] = useState('upload');
   const [isProcessing, setIsProcessing] = useState(false);
 
-  const handleDataLoaded = (data: ProductRow[], cols: string[]) => {
+  // Auto-save session on tab change
+  const handleTabChange = useCallback(async (newTab: string) => {
+    setActiveTab(newTab);
+    
+    if (currentSessionId && user) {
+      await updateSession(currentSessionId, {
+        currentTab: newTab,
+        fieldConfigs,
+        processedProducts,
+      });
+    }
+  }, [currentSessionId, user, fieldConfigs, processedProducts, updateSession]);
+
+  const handleDataLoaded = async (data: ProductRow[], cols: string[], filename?: string) => {
     setRawData(data);
     setColumns(cols);
+    setCurrentFilename(filename || 'planilha.xlsx');
     
     // Initialize field configs
     const configs: FieldConfig[] = cols.map(col => {
@@ -75,11 +102,31 @@ const UltraData = () => {
       };
     });
     setFieldConfigs(configs);
+    
+    // Create new session
+    if (user && filename) {
+      const sessionId = await createSession(filename, data, cols);
+      if (sessionId) {
+        setCurrentSessionId(sessionId);
+      }
+    }
+    
     setActiveTab('config');
   };
 
-  const handleProcessingComplete = (products: ProcessedProduct[]) => {
+  const handleProcessingComplete = async (products: ProcessedProduct[]) => {
     setProcessedProducts(products);
+    
+    // Update session with processed products
+    if (currentSessionId) {
+      await updateSession(currentSessionId, {
+        status: 'completed',
+        itemsProcessed: products.length,
+        processedProducts: products,
+        currentTab: 'validation',
+      });
+    }
+    
     setActiveTab('validation');
   };
 
@@ -89,6 +136,39 @@ const UltraData = () => {
 
   const handleDataUpdate = (updatedData: ProductRow[]) => {
     setRawData(updatedData);
+  };
+
+  // Resume session from history
+  const handleResumeSession = (
+    sessionRawData: ProductRow[],
+    sessionColumns: string[],
+    sessionFieldConfigs: FieldConfig[],
+    sessionProcessedProducts: ProcessedProduct[],
+    targetTab: string
+  ) => {
+    setRawData(sessionRawData);
+    setColumns(sessionColumns);
+    
+    if (sessionFieldConfigs.length > 0) {
+      setFieldConfigs(sessionFieldConfigs);
+    } else {
+      // Initialize field configs if not saved
+      const configs: FieldConfig[] = sessionColumns.map(col => {
+        const isLocked = /estoque|preço|preco|custo|price|stock|valor|quantidade/i.test(col);
+        return {
+          column: col,
+          action: isLocked ? 'ignore' : 'analyze',
+          isLocked,
+        };
+      });
+      setFieldConfigs(configs);
+    }
+    
+    if (sessionProcessedProducts.length > 0) {
+      setProcessedProducts(sessionProcessedProducts);
+    }
+    
+    setActiveTab(targetTab);
   };
 
   const canProceedToProcessing = rawData.length > 0 && fieldConfigs.some(f => f.action !== 'ignore');
@@ -139,14 +219,21 @@ const UltraData = () => {
       </header>
 
       <main className="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-6 h-auto p-1">
+        <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-6">
+          <TabsList className="grid w-full grid-cols-7 h-auto p-1">
             <TabsTrigger 
               value="upload" 
               className="flex items-center gap-2 py-3"
             >
               <Upload className="h-4 w-4" />
               <span className="hidden sm:inline">Upload</span>
+            </TabsTrigger>
+            <TabsTrigger 
+              value="history" 
+              className="flex items-center gap-2 py-3"
+            >
+              <History className="h-4 w-4" />
+              <span className="hidden sm:inline">Histórico</span>
             </TabsTrigger>
             <TabsTrigger 
               value="config" 
@@ -194,6 +281,15 @@ const UltraData = () => {
               <UltraDataUpload onDataLoaded={handleDataLoaded} />
             </TabsContent>
 
+            <TabsContent value="history" className="mt-0">
+              <UltraDataSessionHistory
+                sessions={sessions}
+                loading={sessionsLoading}
+                onResumeSession={handleResumeSession}
+                onDeleteSession={deleteSession}
+              />
+            </TabsContent>
+
             <TabsContent value="config" className="mt-0">
               <UltraDataFieldConfig
                 columns={columns}
@@ -202,7 +298,7 @@ const UltraData = () => {
                 sampleData={rawData.slice(0, 5)}
                 onNext={() => {
                   if (requireAuth()) {
-                    setActiveTab('text-correction');
+                    handleTabChange('text-correction');
                   }
                 }}
               />
@@ -229,6 +325,8 @@ const UltraData = () => {
                 isProcessing={isProcessing}
                 setIsProcessing={setIsProcessing}
                 onComplete={handleProcessingComplete}
+                sessionId={currentSessionId}
+                onSessionUpdate={updateSession}
               />
             </TabsContent>
 
