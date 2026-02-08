@@ -1,5 +1,6 @@
 import * as XLSX from 'xlsx';
 import { saveAs } from 'file-saver';
+import { getAbbreviations } from '@/config';
 
 export interface ColumnConfig {
   action: 'ignore' | 'analyze' | 'default_all' | 'default_empty';
@@ -343,27 +344,7 @@ export const exportDuplicatesReport = (
   exportToExcel(reportData, `duplicidades_${new Date().toISOString().split('T')[0]}`);
 };
 
-// Get default abbreviations
-export const getDefaultAbbreviations = (): Record<string, string> => ({
-  'cm': 'centímetro',
-  'kg': 'quilograma',
-  'g': 'grama',
-  'ml': 'mililitro',
-  'un': 'unidade',
-  'pc': 'peça',
-  'pç': 'peça',
-  'mt': 'metro',
-  'cx': 'caixa',
-  'pct': 'pacote',
-  'und': 'unidade',
-  'lt': 'litro',
-  'qnt': 'quantidade',
-  'qtd': 'quantidade',
-  'ref': 'referência',
-  'tam': 'tamanho',
-  'med': 'médio',
-  'peq': 'pequeno',
-  'grd': 'grande',
-  'c/': 'com',
-  's/': 'sem'
-});
+// Get default abbreviations - loaded from JSON config
+export const getDefaultAbbreviations = (): Record<string, string> => {
+  return getAbbreviations();
+};

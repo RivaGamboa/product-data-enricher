@@ -220,34 +220,84 @@ export const updateProductImageUrls = (
 };
 
 /**
- * Mock search images from internet (placeholder for actual API integration)
- * In production, this would call a search API like SerpAPI or similar
+ * Search product images using AI-generated suggestions
+ * Uses the generate-image edge function as a search proxy
  */
 export const searchProductImages = async (
   query: string,
   count: number = 6
 ): Promise<ImageSearchResult> => {
-  // This is a placeholder - in production, integrate with a real image search API
-  console.log(`Searching for images: ${query}`);
-  
-  // Return empty result - actual implementation would call an edge function
-  return {
-    images: [],
-    query,
-    source: 'placeholder'
-  };
+  // Use AI to generate product images since we don't have a search API
+  // In production, this could be replaced with SerpAPI or Google Images API
+  try {
+    const { data, error } = await supabase.functions.invoke('generate-image', {
+      body: {
+        productName: query,
+        style: 'catalog',
+      },
+    });
+
+    if (error || !data?.imageUrl) {
+      console.warn('Image search/generation failed:', error || 'No image URL');
+      return { images: [], query, source: 'ai_generated' };
+    }
+
+    const image: ProductImage = {
+      id: `ai_${Date.now()}`,
+      url: data.imageUrl,
+      thumbnailUrl: data.imageUrl,
+      source: 'ai_generated',
+      width: 1080,
+      height: 1080,
+      format: 'webp',
+      isBackgroundRemoved: false,
+    };
+
+    return {
+      images: [image],
+      query,
+      source: 'ai_generated',
+    };
+  } catch (err) {
+    console.error('Error searching product images:', err);
+    return { images: [], query, source: 'ai_generated' };
+  }
 };
 
 /**
- * Generate product image using AI (placeholder for actual API integration)
- * In production, this would call the AI gateway with image generation
+ * Generate product image using AI via edge function
  */
 export const generateProductImage = async (
   productName: string,
-  productDescription?: string
+  productDescription?: string,
+  style: 'catalog' | 'lifestyle' | 'minimal' = 'catalog'
 ): Promise<ProductImage | null> => {
-  // This is a placeholder - actual implementation would call an edge function
-  console.log(`Generating AI image for: ${productName}`);
-  
-  return null;
+  try {
+    const { data, error } = await supabase.functions.invoke('generate-image', {
+      body: {
+        productName,
+        productDescription,
+        style,
+      },
+    });
+
+    if (error || !data?.imageUrl) {
+      console.error('Image generation failed:', error || 'No image returned');
+      return null;
+    }
+
+    return {
+      id: `gen_${Date.now()}`,
+      url: data.imageUrl,
+      thumbnailUrl: data.imageUrl,
+      source: 'ai_generated',
+      width: 1080,
+      height: 1080,
+      format: 'webp',
+      isBackgroundRemoved: false,
+    };
+  } catch (err) {
+    console.error('Error generating product image:', err);
+    return null;
+  }
 };

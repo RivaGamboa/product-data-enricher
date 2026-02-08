@@ -2,6 +2,8 @@
 // ULTRACLEAN - Core Types
 // =====================================================
 
+import { getAbbreviations } from '@/config';
+
 export interface ColumnConfig {
   action: 'ignore' | 'analyze' | 'default_all' | 'default_empty';
   defaultValue: string;
@@ -120,27 +122,5 @@ export const BLING_STANDARD_COLUMNS: BlingColumn[] = [
   { name: 'Estoque', required: true, type: 'number', description: 'Quantidade em estoque' },
 ];
 
-// Default abbreviations for Brazilian Portuguese
-export const DEFAULT_ABBREVIATIONS: Record<string, string> = {
-  'cm': 'centímetro',
-  'kg': 'quilograma',
-  'g': 'grama',
-  'ml': 'mililitro',
-  'un': 'unidade',
-  'pc': 'peça',
-  'pç': 'peça',
-  'mt': 'metro',
-  'cx': 'caixa',
-  'pct': 'pacote',
-  'und': 'unidade',
-  'lt': 'litro',
-  'qnt': 'quantidade',
-  'qtd': 'quantidade',
-  'ref': 'referência',
-  'tam': 'tamanho',
-  'med': 'médio',
-  'peq': 'pequeno',
-  'grd': 'grande',
-  'c/': 'com',
-  's/': 'sem'
-};
+// Default abbreviations - loaded from JSON config
+export const DEFAULT_ABBREVIATIONS: Record<string, string> = getAbbreviations();
