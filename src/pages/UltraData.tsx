@@ -50,7 +50,7 @@ export interface ProcessedProduct {
 }
 
 const UltraData = () => {
-  const { user, loading: authLoading } = useAuth();
+  const { user, loading: authLoading, signOut } = useAuth();
   const [showAuthModal, setShowAuthModal] = useState(false);
   
   // Session management
