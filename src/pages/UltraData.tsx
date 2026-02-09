@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowLeft, Upload, Settings2, Sparkles, CheckCircle, SpellCheck, BookA, History } from 'lucide-react';
+import { Upload, Settings2, Sparkles, CheckCircle, SpellCheck, BookA, History, Database, User, LogOut } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Toaster } from '@/components/ui/toaster';
