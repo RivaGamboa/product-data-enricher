@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowLeft, Upload, Settings2, Sparkles, CheckCircle, SpellCheck, BookA, History } from 'lucide-react';
+import { Upload, Settings2, Sparkles, CheckCircle, SpellCheck, BookA, History, Database, User, LogOut } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Toaster } from '@/components/ui/toaster';
@@ -50,7 +50,7 @@ export interface ProcessedProduct {
 }
 
 const UltraData = () => {
-  const { user, loading: authLoading } = useAuth();
+  const { user, loading: authLoading, signOut } = useAuth();
   const [showAuthModal, setShowAuthModal] = useState(false);
   
   // Session management
@@ -192,28 +192,42 @@ const UltraData = () => {
       <header className="bg-card border-b border-border sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
-            <div className="flex items-center space-x-4">
-              <Link to="/" className="text-muted-foreground hover:text-foreground transition-colors">
-                <ArrowLeft className="h-5 w-5" />
-              </Link>
-              <div className="flex items-center space-x-3">
-                <div className="p-2 bg-primary/10 rounded-lg">
-                  <Sparkles className="h-6 w-6 text-primary" />
-                </div>
-                <div>
-                  <h1 className="text-xl font-bold text-foreground">UltraData</h1>
-                  <p className="text-xs text-muted-foreground">
-                    Enriquecimento inteligente com DeepSeek AI
-                  </p>
-                </div>
+            <div className="flex items-center space-x-3">
+              <div className="p-2 bg-primary/10 rounded-lg">
+                <Database className="h-6 w-6 text-primary" />
+              </div>
+              <div>
+                <h1 className="text-xl font-bold text-foreground">UltraData</h1>
+                <p className="text-xs text-muted-foreground hidden sm:block">
+                  Enriquecimento inteligente com DeepSeek AI
+                </p>
               </div>
             </div>
 
-            {!user && (
-              <Button onClick={() => setShowAuthModal(true)} variant="outline" size="sm">
-                Entrar para salvar
-              </Button>
-            )}
+            <div className="flex items-center gap-3">
+              {user ? (
+                <>
+                  <Link to="/profile" className="hidden sm:flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors">
+                    <User className="h-4 w-4" />
+                    <span>{user.email}</span>
+                  </Link>
+                  <Link to="/history">
+                    <Button variant="outline" size="sm">
+                      <History className="h-4 w-4" />
+                      <span className="hidden sm:inline ml-2">Histórico</span>
+                    </Button>
+                  </Link>
+                  <Button variant="ghost" size="sm" onClick={() => signOut()}>
+                    <LogOut className="h-4 w-4" />
+                  </Button>
+                </>
+              ) : (
+                <Button onClick={() => setShowAuthModal(true)} variant="outline" size="sm">
+                  <User className="h-4 w-4 mr-2" />
+                  Entrar
+                </Button>
+              )}
+            </div>
           </div>
         </div>
       </header>
