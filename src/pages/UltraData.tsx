@@ -217,10 +217,7 @@ const UltraData = () => {
                       <span className="hidden sm:inline ml-2">Histórico</span>
                     </Button>
                   </Link>
-                  <Button variant="ghost" size="sm" onClick={async () => {
-                    const { signOut } = await import('@/hooks/useAuth').then(m => ({ signOut: m.useAuth }));
-                    // signOut handled via auth context
-                  }}>
+                  <Button variant="ghost" size="sm" onClick={() => signOut()}>
                     <LogOut className="h-4 w-4" />
                   </Button>
                 </>
