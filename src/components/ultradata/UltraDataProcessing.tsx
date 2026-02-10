@@ -39,6 +39,8 @@ const UltraDataProcessing = ({
   const [processedProducts, setProcessedProducts] = useState<ProcessedProduct[]>([]);
   const [logs, setLogs] = useState<{ type: 'info' | 'success' | 'warning' | 'error'; message: string }[]>([]);
   const [isPaused, setIsPaused] = useState(false);
+  const [imageSearchOpen, setImageSearchOpen] = useState(false);
+  const [imageSearchQuery, setImageSearchQuery] = useState('');
   const abortRef = useRef(false);
 
   const addLog = (type: 'info' | 'success' | 'warning' | 'error', message: string) => {
