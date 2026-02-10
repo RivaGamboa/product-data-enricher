@@ -365,17 +365,28 @@ const UltraDataProcessing = ({
                         </p>
                       )}
                     </div>
-                    {product.necessita_revisao ? (
-                      <Badge variant="outline" className="border-warning text-warning flex-shrink-0">
-                        <AlertTriangle className="h-3 w-3 mr-1" />
-                        Revisar
-                      </Badge>
-                    ) : (
-                      <Badge variant="outline" className="border-success text-success flex-shrink-0">
-                        <Check className="h-3 w-3 mr-1" />
-                        OK
-                      </Badge>
-                    )}
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 w-7 p-0"
+                        title="Buscar imagem para este produto"
+                        onClick={() => openImageSearchForProduct(product)}
+                      >
+                        <Camera className="h-3.5 w-3.5 text-primary" />
+                      </Button>
+                      {product.necessita_revisao ? (
+                        <Badge variant="outline" className="border-warning text-warning">
+                          <AlertTriangle className="h-3 w-3 mr-1" />
+                          Revisar
+                        </Badge>
+                      ) : (
+                        <Badge variant="outline" className="border-success text-success">
+                          <Check className="h-3 w-3 mr-1" />
+                          OK
+                        </Badge>
+                      )}
+                    </div>
                   </div>
                   {product.razao_revisao && (
                     <p className="text-xs text-warning mt-1">{product.razao_revisao}</p>
