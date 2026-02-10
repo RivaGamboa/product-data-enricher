@@ -216,8 +216,28 @@ const UltraDataProcessing = ({
   const reviewCount = processedProducts.filter(p => p.necessita_revisao).length;
   const successCount = processedProducts.filter(p => !p.necessita_revisao).length;
 
+  const openImageSearchForProduct = (product: ProcessedProduct) => {
+    const name = product.enriched.nome_padronizado || product.original['nome'] || product.original['Nome'] || '';
+    setImageSearchQuery(String(name));
+    setImageSearchOpen(true);
+  };
+
+  const handleImageSelected = (imageUrl: string) => {
+    toast({
+      title: 'Imagem vinculada',
+      description: 'A URL da imagem foi copiada. Use na aba de validação para associar ao produto.',
+    });
+    setImageSearchOpen(false);
+  };
+
   return (
     <div className="space-y-6">
+      <UltraDataImageSearch
+        isOpen={imageSearchOpen}
+        onClose={() => setImageSearchOpen(false)}
+        onImageSelect={handleImageSelected}
+        initialQuery={imageSearchQuery}
+      />
       <div>
         <h2 className="text-2xl font-bold text-foreground mb-2">Processamento com IA</h2>
         <p className="text-muted-foreground">
