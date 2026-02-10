@@ -424,7 +424,7 @@ const UltraDataProcessing = ({
                         size="sm"
                         className="h-7 w-7 p-0"
                         title="Buscar imagem para este produto"
-                        onClick={() => openImageSearchForProduct(product)}
+                        onClick={() => openImageSearchForProduct(product, idx)}
                       >
                         <Camera className="h-3.5 w-3.5 text-primary" />
                       </Button>
