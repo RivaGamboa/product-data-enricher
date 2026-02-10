@@ -47,7 +47,12 @@ const UltraDataProcessing = ({
   const [imageSearchOpen, setImageSearchOpen] = useState(false);
   const [imageSearchQuery, setImageSearchQuery] = useState('');
   const [imageSearchProductIndex, setImageSearchProductIndex] = useState<number | null>(null);
+  const [batchSize, setBatchSize] = useState(3);
   const abortRef = useRef(false);
+  const cacheRef = useRef<Map<string, ProcessedProduct>>(new Map());
+
+  // Load abbreviations from config
+  const abbreviations = useRef(getAbbreviations());
 
   const addLog = (type: 'info' | 'success' | 'warning' | 'error', message: string) => {
     setLogs(prev => [...prev.slice(-99), { type, message }]);
