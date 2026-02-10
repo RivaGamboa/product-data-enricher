@@ -329,6 +329,27 @@ const UltraDataProcessing = ({
         </div>
       </div>
 
+      {/* Batch Size Control */}
+      {!isProcessing && processedProducts.length === 0 && (
+        <div className="flex items-center gap-4 p-4 bg-muted/30 rounded-lg">
+          <div className="flex items-center gap-2">
+            <Zap className="h-4 w-4 text-primary" />
+            <Label className="text-sm font-medium whitespace-nowrap">Lote paralelo:</Label>
+          </div>
+          <Slider
+            value={[batchSize]}
+            onValueChange={([v]) => setBatchSize(v)}
+            min={1}
+            max={10}
+            step={1}
+            className="flex-1 max-w-[200px]"
+          />
+          <span className="text-sm font-mono text-muted-foreground w-16">{batchSize} item{batchSize > 1 ? 's' : ''}</span>
+          <span className="text-xs text-muted-foreground hidden sm:inline">
+            {cacheRef.current.size > 0 && `• ${cacheRef.current.size} em cache`}
+          </span>
+        </div>
+      )}
       {/* Progress */}
       {(isProcessing || processedProducts.length > 0) && (
         <div className="space-y-2">

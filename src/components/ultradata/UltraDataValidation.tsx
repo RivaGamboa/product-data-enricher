@@ -223,7 +223,7 @@ const UltraDataValidation = ({
     return { products, data, columns: exportColumns };
   }, [exportPreview.isOpen, exportPreview.type, exportOptions, processedProducts, selectedIds]);
 
-  const confirmExport = () => {
+  const confirmExport = (format: 'xlsx' | 'csv' | 'json' = 'xlsx') => {
     const { products, data } = previewData;
     
     if (data.length === 0) {
@@ -234,27 +234,33 @@ const UltraDataValidation = ({
       return;
     }
 
-    const ws = XLSX.utils.json_to_sheet(data);
-    
-    // Auto-size columns
-    const colWidths = Object.keys(data[0] || {}).map(key => ({
-      wch: Math.max(key.length, 15)
-    }));
-    ws['!cols'] = colWidths;
-    
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'Produtos Enriquecidos');
-    
-    const excelBuffer = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
-    const blob = new Blob([excelBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-    
     const timestamp = new Date().toISOString().slice(0, 10);
     const filenamePrefix = getFilenamePrefix(exportPreview.type);
-    saveAs(blob, `${filenamePrefix}_${timestamp}.xlsx`);
+
+    if (format === 'json') {
+      const jsonBlob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+      saveAs(jsonBlob, `${filenamePrefix}_${timestamp}.json`);
+    } else if (format === 'csv') {
+      const ws = XLSX.utils.json_to_sheet(data);
+      const csvContent = XLSX.utils.sheet_to_csv(ws);
+      const csvBlob = new Blob([csvContent], { type: 'text/csv;charset=utf-8' });
+      saveAs(csvBlob, `${filenamePrefix}_${timestamp}.csv`);
+    } else {
+      const ws = XLSX.utils.json_to_sheet(data);
+      const colWidths = Object.keys(data[0] || {}).map(key => ({
+        wch: Math.max(key.length, 15)
+      }));
+      ws['!cols'] = colWidths;
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'Produtos Enriquecidos');
+      const excelBuffer = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+      const blob = new Blob([excelBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+      saveAs(blob, `${filenamePrefix}_${timestamp}.xlsx`);
+    }
 
     toast({
       title: "Exportação concluída!",
-      description: `${products.length} produtos exportados com sucesso.`,
+      description: `${products.length} produtos exportados como ${format.toUpperCase()}.`,
     });
     
     setExportPreview(prev => ({ ...prev, isOpen: false }));
