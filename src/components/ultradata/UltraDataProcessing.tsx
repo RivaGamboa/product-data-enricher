@@ -281,10 +281,25 @@ const UltraDataProcessing = ({
       {/* Controls */}
       <div className="flex gap-3">
         {!isProcessing ? (
-          <Button onClick={startProcessing} size="lg" className="flex-1">
-            <Sparkles className="h-4 w-4 mr-2" />
-            {processedProducts.length > 0 ? 'Reprocessar' : 'Iniciar Enriquecimento'}
-          </Button>
+          <>
+            <Button onClick={startProcessing} size="lg" className="flex-1">
+              <Sparkles className="h-4 w-4 mr-2" />
+              {processedProducts.length > 0 ? 'Reprocessar' : 'Iniciar Enriquecimento'}
+            </Button>
+            {processedProducts.length > 0 && (
+              <Button
+                variant="outline"
+                size="lg"
+                onClick={() => {
+                  setImageSearchQuery('');
+                  setImageSearchOpen(true);
+                }}
+              >
+                <Camera className="h-4 w-4 mr-2" />
+                Buscar Imagens
+              </Button>
+            )}
+          </>
         ) : (
           <>
             {isPaused ? (
