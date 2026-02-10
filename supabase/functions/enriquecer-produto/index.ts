@@ -108,7 +108,7 @@ serve(async (req) => {
   const startTime = Date.now();
 
   try {
-    const { produto, user_id, session_id } = await req.json();
+    const { produto, user_id, session_id, abbreviations } = await req.json();
     
     if (!produto) {
       return new Response(
@@ -125,6 +125,12 @@ serve(async (req) => {
       );
     }
 
+    // Build user message with abbreviations context
+    let userContent = JSON.stringify(produto);
+    if (abbreviations && Object.keys(abbreviations).length > 0) {
+      userContent = `Produto: ${JSON.stringify(produto)}\n\nAbreviações conhecidas (expanda quando encontrar): ${JSON.stringify(abbreviations)}`;
+    }
+
     // 1. CHAMADA À API DEEPSEEK
     console.log("Chamando DeepSeek API para produto:", JSON.stringify(produto).substring(0, 100));
     
@@ -138,9 +144,9 @@ serve(async (req) => {
         model: "deepseek-chat",
         messages: [
           { role: "system", content: SISTEMA_PROMPT },
-          { role: "user", content: JSON.stringify(produto) }
+          { role: "user", content: userContent }
         ],
-        temperature: 0.1, // Baixa para consistência
+        temperature: 0.1,
         response_format: { type: "json_object" }
       }),
     });

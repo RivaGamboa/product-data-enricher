@@ -1,11 +1,14 @@
-import { useState, useEffect, useRef } from 'react';
-import { Sparkles, AlertTriangle, Check, Loader2, Play, Pause, Camera, ImageIcon } from 'lucide-react';
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { Sparkles, AlertTriangle, Check, Loader2, Play, Pause, Camera, ImageIcon, Zap } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Label } from '@/components/ui/label';
+import { Slider } from '@/components/ui/slider';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
+import { getAbbreviations } from '@/config';
 import UltraDataImageSearch from './UltraDataImageSearch';
 import type { ProductRow, FieldConfig, ProcessedProduct } from '@/pages/UltraData';
 
@@ -44,7 +47,12 @@ const UltraDataProcessing = ({
   const [imageSearchOpen, setImageSearchOpen] = useState(false);
   const [imageSearchQuery, setImageSearchQuery] = useState('');
   const [imageSearchProductIndex, setImageSearchProductIndex] = useState<number | null>(null);
+  const [batchSize, setBatchSize] = useState(3);
   const abortRef = useRef(false);
+  const cacheRef = useRef<Map<string, ProcessedProduct>>(new Map());
+
+  // Load abbreviations from config
+  const abbreviations = useRef(getAbbreviations());
 
   const addLog = (type: 'info' | 'success' | 'warning' | 'error', message: string) => {
     setLogs(prev => [...prev.slice(-99), { type, message }]);
@@ -53,7 +61,6 @@ const UltraDataProcessing = ({
   const analyzeColumns = fieldConfigs.filter(fc => fc.action === 'analyze').map(fc => fc.column);
 
   const processProduct = async (row: ProductRow, index: number): Promise<ProcessedProduct> => {
-    // Build product object with only columns to analyze
     const productToEnrich: Record<string, any> = {};
     analyzeColumns.forEach(col => {
       if (row[col] !== undefined && row[col] !== null) {
@@ -61,11 +68,20 @@ const UltraDataProcessing = ({
       }
     });
 
+    // Check cache
+    const cacheKey = JSON.stringify(productToEnrich);
+    const cached = cacheRef.current.get(cacheKey);
+    if (cached) {
+      addLog('info', `Item ${index + 1}: Cache hit ⚡`);
+      return { ...cached, original: row };
+    }
+
     try {
       const { data, error } = await supabase.functions.invoke('enriquecer-produto', {
         body: {
           produto: productToEnrich,
           user_id: userId,
+          abbreviations: abbreviations.current,
         },
       });
 
@@ -90,7 +106,7 @@ const UltraDataProcessing = ({
         addLog('success', `Item ${index + 1}: Processado em ${data.tempo_processamento_ms}ms`);
       }
 
-      return {
+      const result: ProcessedProduct = {
         original: row,
         enriched: {
           nome_padronizado: data.nome_padronizado,
@@ -105,6 +121,11 @@ const UltraDataProcessing = ({
         validado: false,
         tempo_processamento_ms: data.tempo_processamento_ms,
       };
+
+      // Store in cache
+      cacheRef.current.set(cacheKey, result);
+
+      return result;
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Erro desconhecido';
       addLog('error', `Item ${index + 1}: ${message}`);
@@ -128,17 +149,18 @@ const UltraDataProcessing = ({
     setLogs([]);
     abortRef.current = false;
 
-    // Update session status to processing
     if (sessionId && onSessionUpdate) {
       await onSessionUpdate(sessionId, { status: 'processing' });
     }
 
-    addLog('info', `Iniciando processamento de ${rawData.length} itens...`);
+    addLog('info', `Iniciando processamento de ${rawData.length} itens (lote: ${batchSize})...`);
     addLog('info', `Colunas para análise: ${analyzeColumns.join(', ')}`);
+    addLog('info', `Abreviações carregadas: ${Object.keys(abbreviations.current).length} regras`);
 
     const results: ProcessedProduct[] = [];
 
-    for (let i = 0; i < rawData.length; i++) {
+    // Process in parallel batches
+    for (let i = 0; i < rawData.length; i += batchSize) {
       if (abortRef.current) {
         addLog('warning', 'Processamento cancelado pelo usuário');
         break;
@@ -148,15 +170,19 @@ const UltraDataProcessing = ({
         await new Promise(r => setTimeout(r, 100));
       }
 
-      setCurrentItem(i + 1);
-      const result = await processProduct(rawData[i], i);
-      results.push(result);
+      const batch = rawData.slice(i, Math.min(i + batchSize, rawData.length));
+      const batchPromises = batch.map((row, bIdx) => processProduct(row, i + bIdx));
+      
+      const batchResults = await Promise.all(batchPromises);
+      results.push(...batchResults);
+      
+      setCurrentItem(Math.min(i + batchSize, rawData.length));
       setProcessedProducts([...results]);
-      setProgress(((i + 1) / rawData.length) * 100);
+      setProgress((results.length / rawData.length) * 100);
 
-      // Small delay to avoid rate limiting
-      if (i < rawData.length - 1) {
-        await new Promise(r => setTimeout(r, 200));
+      // Rate limit delay between batches
+      if (i + batchSize < rawData.length) {
+        await new Promise(r => setTimeout(r, 500));
       }
     }
 
@@ -303,6 +329,27 @@ const UltraDataProcessing = ({
         </div>
       </div>
 
+      {/* Batch Size Control */}
+      {!isProcessing && processedProducts.length === 0 && (
+        <div className="flex items-center gap-4 p-4 bg-muted/30 rounded-lg">
+          <div className="flex items-center gap-2">
+            <Zap className="h-4 w-4 text-primary" />
+            <Label className="text-sm font-medium whitespace-nowrap">Lote paralelo:</Label>
+          </div>
+          <Slider
+            value={[batchSize]}
+            onValueChange={([v]) => setBatchSize(v)}
+            min={1}
+            max={10}
+            step={1}
+            className="flex-1 max-w-[200px]"
+          />
+          <span className="text-sm font-mono text-muted-foreground w-16">{batchSize} item{batchSize > 1 ? 's' : ''}</span>
+          <span className="text-xs text-muted-foreground hidden sm:inline">
+            {cacheRef.current.size > 0 && `• ${cacheRef.current.size} em cache`}
+          </span>
+        </div>
+      )}
       {/* Progress */}
       {(isProcessing || processedProducts.length > 0) && (
         <div className="space-y-2">

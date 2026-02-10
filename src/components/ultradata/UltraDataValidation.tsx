@@ -223,7 +223,7 @@ const UltraDataValidation = ({
     return { products, data, columns: exportColumns };
   }, [exportPreview.isOpen, exportPreview.type, exportOptions, processedProducts, selectedIds]);
 
-  const confirmExport = () => {
+  const confirmExport = (format: 'xlsx' | 'csv' | 'json' = 'xlsx') => {
     const { products, data } = previewData;
     
     if (data.length === 0) {
@@ -234,27 +234,33 @@ const UltraDataValidation = ({
       return;
     }
 
-    const ws = XLSX.utils.json_to_sheet(data);
-    
-    // Auto-size columns
-    const colWidths = Object.keys(data[0] || {}).map(key => ({
-      wch: Math.max(key.length, 15)
-    }));
-    ws['!cols'] = colWidths;
-    
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'Produtos Enriquecidos');
-    
-    const excelBuffer = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
-    const blob = new Blob([excelBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-    
     const timestamp = new Date().toISOString().slice(0, 10);
     const filenamePrefix = getFilenamePrefix(exportPreview.type);
-    saveAs(blob, `${filenamePrefix}_${timestamp}.xlsx`);
+
+    if (format === 'json') {
+      const jsonBlob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+      saveAs(jsonBlob, `${filenamePrefix}_${timestamp}.json`);
+    } else if (format === 'csv') {
+      const ws = XLSX.utils.json_to_sheet(data);
+      const csvContent = XLSX.utils.sheet_to_csv(ws);
+      const csvBlob = new Blob([csvContent], { type: 'text/csv;charset=utf-8' });
+      saveAs(csvBlob, `${filenamePrefix}_${timestamp}.csv`);
+    } else {
+      const ws = XLSX.utils.json_to_sheet(data);
+      const colWidths = Object.keys(data[0] || {}).map(key => ({
+        wch: Math.max(key.length, 15)
+      }));
+      ws['!cols'] = colWidths;
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'Produtos Enriquecidos');
+      const excelBuffer = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+      const blob = new Blob([excelBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+      saveAs(blob, `${filenamePrefix}_${timestamp}.xlsx`);
+    }
 
     toast({
       title: "Exportação concluída!",
-      description: `${products.length} produtos exportados com sucesso.`,
+      description: `${products.length} produtos exportados como ${format.toUpperCase()}.`,
     });
     
     setExportPreview(prev => ({ ...prev, isOpen: false }));
@@ -470,14 +476,22 @@ const UltraDataValidation = ({
                 <span>•</span>
                 <span>{previewData.columns.length} colunas</span>
               </div>
-              <DialogFooter className="flex-row gap-2 sm:gap-2">
+              <DialogFooter className="flex-row gap-2 sm:gap-2 flex-wrap">
                 <Button variant="outline" onClick={() => setExportPreview(prev => ({ ...prev, isOpen: false }))}>
                   <X className="h-4 w-4 mr-2" />
                   Cancelar
                 </Button>
-                <Button onClick={confirmExport}>
+                <Button variant="outline" onClick={() => confirmExport('json')}>
+                  <FileText className="h-4 w-4 mr-2" />
+                  JSON
+                </Button>
+                <Button variant="outline" onClick={() => confirmExport('csv')}>
+                  <FileDown className="h-4 w-4 mr-2" />
+                  CSV
+                </Button>
+                <Button onClick={() => confirmExport('xlsx')}>
                   <Download className="h-4 w-4 mr-2" />
-                  Confirmar Download
+                  Excel
                 </Button>
               </DialogFooter>
             </div>
