@@ -61,7 +61,6 @@ const UltraDataProcessing = ({
   const analyzeColumns = fieldConfigs.filter(fc => fc.action === 'analyze').map(fc => fc.column);
 
   const processProduct = async (row: ProductRow, index: number): Promise<ProcessedProduct> => {
-    // Build product object with only columns to analyze
     const productToEnrich: Record<string, any> = {};
     analyzeColumns.forEach(col => {
       if (row[col] !== undefined && row[col] !== null) {
@@ -69,11 +68,20 @@ const UltraDataProcessing = ({
       }
     });
 
+    // Check cache
+    const cacheKey = JSON.stringify(productToEnrich);
+    const cached = cacheRef.current.get(cacheKey);
+    if (cached) {
+      addLog('info', `Item ${index + 1}: Cache hit ⚡`);
+      return { ...cached, original: row };
+    }
+
     try {
       const { data, error } = await supabase.functions.invoke('enriquecer-produto', {
         body: {
           produto: productToEnrich,
           user_id: userId,
+          abbreviations: abbreviations.current,
         },
       });
 
@@ -98,7 +106,7 @@ const UltraDataProcessing = ({
         addLog('success', `Item ${index + 1}: Processado em ${data.tempo_processamento_ms}ms`);
       }
 
-      return {
+      const result: ProcessedProduct = {
         original: row,
         enriched: {
           nome_padronizado: data.nome_padronizado,
@@ -113,6 +121,11 @@ const UltraDataProcessing = ({
         validado: false,
         tempo_processamento_ms: data.tempo_processamento_ms,
       };
+
+      // Store in cache
+      cacheRef.current.set(cacheKey, result);
+
+      return result;
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Erro desconhecido';
       addLog('error', `Item ${index + 1}: ${message}`);
@@ -136,17 +149,18 @@ const UltraDataProcessing = ({
     setLogs([]);
     abortRef.current = false;
 
-    // Update session status to processing
     if (sessionId && onSessionUpdate) {
       await onSessionUpdate(sessionId, { status: 'processing' });
     }
 
-    addLog('info', `Iniciando processamento de ${rawData.length} itens...`);
+    addLog('info', `Iniciando processamento de ${rawData.length} itens (lote: ${batchSize})...`);
     addLog('info', `Colunas para análise: ${analyzeColumns.join(', ')}`);
+    addLog('info', `Abreviações carregadas: ${Object.keys(abbreviations.current).length} regras`);
 
     const results: ProcessedProduct[] = [];
 
-    for (let i = 0; i < rawData.length; i++) {
+    // Process in parallel batches
+    for (let i = 0; i < rawData.length; i += batchSize) {
       if (abortRef.current) {
         addLog('warning', 'Processamento cancelado pelo usuário');
         break;
@@ -156,15 +170,19 @@ const UltraDataProcessing = ({
         await new Promise(r => setTimeout(r, 100));
       }
 
-      setCurrentItem(i + 1);
-      const result = await processProduct(rawData[i], i);
-      results.push(result);
+      const batch = rawData.slice(i, Math.min(i + batchSize, rawData.length));
+      const batchPromises = batch.map((row, bIdx) => processProduct(row, i + bIdx));
+      
+      const batchResults = await Promise.all(batchPromises);
+      results.push(...batchResults);
+      
+      setCurrentItem(Math.min(i + batchSize, rawData.length));
       setProcessedProducts([...results]);
-      setProgress(((i + 1) / rawData.length) * 100);
+      setProgress((results.length / rawData.length) * 100);
 
-      // Small delay to avoid rate limiting
-      if (i < rawData.length - 1) {
-        await new Promise(r => setTimeout(r, 200));
+      // Rate limit delay between batches
+      if (i + batchSize < rawData.length) {
+        await new Promise(r => setTimeout(r, 500));
       }
     }
 
