@@ -1,11 +1,12 @@
 import { useState, useEffect, useRef } from 'react';
-import { Sparkles, AlertTriangle, Check, Loader2, Play, Pause } from 'lucide-react';
+import { Sparkles, AlertTriangle, Check, Loader2, Play, Pause, Camera } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
+import UltraDataImageSearch from './UltraDataImageSearch';
 import type { ProductRow, FieldConfig, ProcessedProduct } from '@/pages/UltraData';
 
 interface UltraDataProcessingProps {
@@ -38,6 +39,8 @@ const UltraDataProcessing = ({
   const [processedProducts, setProcessedProducts] = useState<ProcessedProduct[]>([]);
   const [logs, setLogs] = useState<{ type: 'info' | 'success' | 'warning' | 'error'; message: string }[]>([]);
   const [isPaused, setIsPaused] = useState(false);
+  const [imageSearchOpen, setImageSearchOpen] = useState(false);
+  const [imageSearchQuery, setImageSearchQuery] = useState('');
   const abortRef = useRef(false);
 
   const addLog = (type: 'info' | 'success' | 'warning' | 'error', message: string) => {
@@ -213,8 +216,28 @@ const UltraDataProcessing = ({
   const reviewCount = processedProducts.filter(p => p.necessita_revisao).length;
   const successCount = processedProducts.filter(p => !p.necessita_revisao).length;
 
+  const openImageSearchForProduct = (product: ProcessedProduct) => {
+    const name = product.enriched.nome_padronizado || product.original['nome'] || product.original['Nome'] || '';
+    setImageSearchQuery(String(name));
+    setImageSearchOpen(true);
+  };
+
+  const handleImageSelected = (imageUrl: string) => {
+    toast({
+      title: 'Imagem vinculada',
+      description: 'A URL da imagem foi copiada. Use na aba de validação para associar ao produto.',
+    });
+    setImageSearchOpen(false);
+  };
+
   return (
     <div className="space-y-6">
+      <UltraDataImageSearch
+        isOpen={imageSearchOpen}
+        onClose={() => setImageSearchOpen(false)}
+        onImageSelect={handleImageSelected}
+        initialQuery={imageSearchQuery}
+      />
       <div>
         <h2 className="text-2xl font-bold text-foreground mb-2">Processamento com IA</h2>
         <p className="text-muted-foreground">
@@ -258,10 +281,25 @@ const UltraDataProcessing = ({
       {/* Controls */}
       <div className="flex gap-3">
         {!isProcessing ? (
-          <Button onClick={startProcessing} size="lg" className="flex-1">
-            <Sparkles className="h-4 w-4 mr-2" />
-            {processedProducts.length > 0 ? 'Reprocessar' : 'Iniciar Enriquecimento'}
-          </Button>
+          <>
+            <Button onClick={startProcessing} size="lg" className="flex-1">
+              <Sparkles className="h-4 w-4 mr-2" />
+              {processedProducts.length > 0 ? 'Reprocessar' : 'Iniciar Enriquecimento'}
+            </Button>
+            {processedProducts.length > 0 && (
+              <Button
+                variant="outline"
+                size="lg"
+                onClick={() => {
+                  setImageSearchQuery('');
+                  setImageSearchOpen(true);
+                }}
+              >
+                <Camera className="h-4 w-4 mr-2" />
+                Buscar Imagens
+              </Button>
+            )}
+          </>
         ) : (
           <>
             {isPaused ? (
@@ -342,17 +380,28 @@ const UltraDataProcessing = ({
                         </p>
                       )}
                     </div>
-                    {product.necessita_revisao ? (
-                      <Badge variant="outline" className="border-warning text-warning flex-shrink-0">
-                        <AlertTriangle className="h-3 w-3 mr-1" />
-                        Revisar
-                      </Badge>
-                    ) : (
-                      <Badge variant="outline" className="border-success text-success flex-shrink-0">
-                        <Check className="h-3 w-3 mr-1" />
-                        OK
-                      </Badge>
-                    )}
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 w-7 p-0"
+                        title="Buscar imagem para este produto"
+                        onClick={() => openImageSearchForProduct(product)}
+                      >
+                        <Camera className="h-3.5 w-3.5 text-primary" />
+                      </Button>
+                      {product.necessita_revisao ? (
+                        <Badge variant="outline" className="border-warning text-warning">
+                          <AlertTriangle className="h-3 w-3 mr-1" />
+                          Revisar
+                        </Badge>
+                      ) : (
+                        <Badge variant="outline" className="border-success text-success">
+                          <Check className="h-3 w-3 mr-1" />
+                          OK
+                        </Badge>
+                      )}
+                    </div>
                   </div>
                   {product.razao_revisao && (
                     <p className="text-xs text-warning mt-1">{product.razao_revisao}</p>
