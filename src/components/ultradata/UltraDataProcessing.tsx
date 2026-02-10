@@ -219,18 +219,53 @@ const UltraDataProcessing = ({
   const reviewCount = processedProducts.filter(p => p.necessita_revisao).length;
   const successCount = processedProducts.filter(p => !p.necessita_revisao).length;
 
-  const openImageSearchForProduct = (product: ProcessedProduct) => {
+  const openImageSearchForProduct = (product: ProcessedProduct, idx: number) => {
     const name = product.enriched.nome_padronizado || product.original['nome'] || product.original['Nome'] || '';
     setImageSearchQuery(String(name));
+    setImageSearchProductIndex(idx);
     setImageSearchOpen(true);
   };
 
+  const IMAGE_COLUMN = 'URL Imagens Externas';
+
   const handleImageSelected = (imageUrl: string) => {
+    if (imageSearchProductIndex !== null && onDataUpdate) {
+      const updatedData = rawData.map((row, i) => {
+        if (i === imageSearchProductIndex) {
+          const existing = String(row[IMAGE_COLUMN] || '').trim();
+          return {
+            ...row,
+            [IMAGE_COLUMN]: existing ? `${existing}|${imageUrl}` : imageUrl,
+          };
+        }
+        return row;
+      });
+      onDataUpdate(updatedData);
+
+      // Also update the processed product's original data for display
+      setProcessedProducts(prev =>
+        prev.map((p, i) => {
+          if (i === imageSearchProductIndex) {
+            const existing = String(p.original[IMAGE_COLUMN] || '').trim();
+            return {
+              ...p,
+              original: {
+                ...p.original,
+                [IMAGE_COLUMN]: existing ? `${existing}|${imageUrl}` : imageUrl,
+              },
+            };
+          }
+          return p;
+        })
+      );
+    }
+
     toast({
-      title: 'Imagem vinculada',
-      description: 'A URL da imagem foi copiada. Use na aba de validação para associar ao produto.',
+      title: 'Imagem vinculada!',
+      description: `URL salva na coluna "${IMAGE_COLUMN}" do produto.`,
     });
     setImageSearchOpen(false);
+    setImageSearchProductIndex(null);
   };
 
   return (
