@@ -377,6 +377,7 @@ const UltraData = () => {
                 isProcessing={isProcessing}
                 setIsProcessing={setIsProcessing}
                 onComplete={handleProcessingComplete}
+                onDataUpdate={handleDataUpdate}
                 sessionId={currentSessionId}
                 onSessionUpdate={updateSession}
               />

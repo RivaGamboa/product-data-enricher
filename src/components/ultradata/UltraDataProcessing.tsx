@@ -16,6 +16,7 @@ interface UltraDataProcessingProps {
   isProcessing: boolean;
   setIsProcessing: (val: boolean) => void;
   onComplete: (products: ProcessedProduct[]) => void;
+  onDataUpdate?: (data: ProductRow[]) => void;
   sessionId?: string | null;
   onSessionUpdate?: (sessionId: string, updates: {
     status?: 'pending' | 'processing' | 'paused' | 'completed' | 'failed';
@@ -30,6 +31,7 @@ const UltraDataProcessing = ({
   isProcessing,
   setIsProcessing,
   onComplete,
+  onDataUpdate,
   sessionId,
   onSessionUpdate,
 }: UltraDataProcessingProps) => {
@@ -41,6 +43,7 @@ const UltraDataProcessing = ({
   const [isPaused, setIsPaused] = useState(false);
   const [imageSearchOpen, setImageSearchOpen] = useState(false);
   const [imageSearchQuery, setImageSearchQuery] = useState('');
+  const [imageSearchProductIndex, setImageSearchProductIndex] = useState<number | null>(null);
   const abortRef = useRef(false);
 
   const addLog = (type: 'info' | 'success' | 'warning' | 'error', message: string) => {
@@ -216,18 +219,53 @@ const UltraDataProcessing = ({
   const reviewCount = processedProducts.filter(p => p.necessita_revisao).length;
   const successCount = processedProducts.filter(p => !p.necessita_revisao).length;
 
-  const openImageSearchForProduct = (product: ProcessedProduct) => {
+  const openImageSearchForProduct = (product: ProcessedProduct, idx: number) => {
     const name = product.enriched.nome_padronizado || product.original['nome'] || product.original['Nome'] || '';
     setImageSearchQuery(String(name));
+    setImageSearchProductIndex(idx);
     setImageSearchOpen(true);
   };
 
+  const IMAGE_COLUMN = 'URL Imagens Externas';
+
   const handleImageSelected = (imageUrl: string) => {
+    if (imageSearchProductIndex !== null && onDataUpdate) {
+      const updatedData = rawData.map((row, i) => {
+        if (i === imageSearchProductIndex) {
+          const existing = String(row[IMAGE_COLUMN] || '').trim();
+          return {
+            ...row,
+            [IMAGE_COLUMN]: existing ? `${existing}|${imageUrl}` : imageUrl,
+          };
+        }
+        return row;
+      });
+      onDataUpdate(updatedData);
+
+      // Also update the processed product's original data for display
+      setProcessedProducts(prev =>
+        prev.map((p, i) => {
+          if (i === imageSearchProductIndex) {
+            const existing = String(p.original[IMAGE_COLUMN] || '').trim();
+            return {
+              ...p,
+              original: {
+                ...p.original,
+                [IMAGE_COLUMN]: existing ? `${existing}|${imageUrl}` : imageUrl,
+              },
+            };
+          }
+          return p;
+        })
+      );
+    }
+
     toast({
-      title: 'Imagem vinculada',
-      description: 'A URL da imagem foi copiada. Use na aba de validação para associar ao produto.',
+      title: 'Imagem vinculada!',
+      description: `URL salva na coluna "${IMAGE_COLUMN}" do produto.`,
     });
     setImageSearchOpen(false);
+    setImageSearchProductIndex(null);
   };
 
   return (
@@ -386,7 +424,7 @@ const UltraDataProcessing = ({
                         size="sm"
                         className="h-7 w-7 p-0"
                         title="Buscar imagem para este produto"
-                        onClick={() => openImageSearchForProduct(product)}
+                        onClick={() => openImageSearchForProduct(product, idx)}
                       >
                         <Camera className="h-3.5 w-3.5 text-primary" />
                       </Button>
