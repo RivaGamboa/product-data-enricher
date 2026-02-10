@@ -54,6 +54,8 @@ export interface ProcessedProduct {
 const UltraData = () => {
   const { user, loading: authLoading, signOut } = useAuth();
   const [showAuthModal, setShowAuthModal] = useState(false);
+  const [showImageSearch, setShowImageSearch] = useState(false);
+  const [showEnrichmentModal, setShowEnrichmentModal] = useState(false);
   
   // Session management
   const {
