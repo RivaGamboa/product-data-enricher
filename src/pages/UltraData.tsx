@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
-import { Upload, Settings2, Sparkles, CheckCircle, SpellCheck, BookA, History, Database, User, LogOut } from 'lucide-react';
+import { Upload, Settings2, Sparkles, CheckCircle, SpellCheck, BookA, History, Database, User, LogOut, Camera, Zap } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Toaster } from '@/components/ui/toaster';
@@ -14,6 +14,8 @@ import UltraDataValidation from '@/components/ultradata/UltraDataValidation';
 import UltraDataTextCorrection from '@/components/ultradata/UltraDataTextCorrection';
 import UltraDataAbbreviations from '@/components/ultradata/UltraDataAbbreviations';
 import UltraDataSessionHistory from '@/components/ultradata/UltraDataSessionHistory';
+import UltraDataImageSearch from '@/components/ultradata/UltraDataImageSearch';
+import UltraDataEnrichmentModal from '@/components/ultradata/UltraDataEnrichmentModal';
 
 export interface ProductRow {
   [key: string]: string | number | null;
