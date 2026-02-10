@@ -419,15 +419,28 @@ const UltraDataProcessing = ({
                       )}
                     </div>
                     <div className="flex items-center gap-2 flex-shrink-0">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-7 w-7 p-0"
-                        title="Buscar imagem para este produto"
-                        onClick={() => openImageSearchForProduct(product, idx)}
-                      >
-                        <Camera className="h-3.5 w-3.5 text-primary" />
-                      </Button>
+                      {(() => {
+                        const imgUrls = String(product.original['URL Imagens Externas'] || '').trim();
+                        const imgCount = imgUrls ? imgUrls.split('|').filter(Boolean).length : 0;
+                        return (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className={`h-7 gap-1 px-1.5 ${imgCount > 0 ? 'text-primary' : 'text-muted-foreground'}`}
+                            title={imgCount > 0 ? `${imgCount} imagem(ns) vinculada(s)` : 'Buscar imagem para este produto'}
+                            onClick={() => openImageSearchForProduct(product, idx)}
+                          >
+                            {imgCount > 0 ? (
+                              <>
+                                <ImageIcon className="h-3.5 w-3.5" />
+                                <span className="text-xs font-semibold">{imgCount}</span>
+                              </>
+                            ) : (
+                              <Camera className="h-3.5 w-3.5" />
+                            )}
+                          </Button>
+                        );
+                      })()}
                       {product.necessita_revisao ? (
                         <Badge variant="outline" className="border-warning text-warning">
                           <AlertTriangle className="h-3 w-3 mr-1" />
