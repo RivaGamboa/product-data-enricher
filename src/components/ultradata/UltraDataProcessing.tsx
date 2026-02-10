@@ -1,11 +1,12 @@
 import { useState, useEffect, useRef } from 'react';
-import { Sparkles, AlertTriangle, Check, Loader2, Play, Pause } from 'lucide-react';
+import { Sparkles, AlertTriangle, Check, Loader2, Play, Pause, Camera } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
+import UltraDataImageSearch from './UltraDataImageSearch';
 import type { ProductRow, FieldConfig, ProcessedProduct } from '@/pages/UltraData';
 
 interface UltraDataProcessingProps {
