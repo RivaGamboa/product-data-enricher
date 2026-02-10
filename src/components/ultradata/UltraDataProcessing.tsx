@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Sparkles, AlertTriangle, Check, Loader2, Play, Pause, Camera } from 'lucide-react';
+import { Sparkles, AlertTriangle, Check, Loader2, Play, Pause, Camera, ImageIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
