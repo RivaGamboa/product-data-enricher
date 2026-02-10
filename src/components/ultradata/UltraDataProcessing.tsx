@@ -16,6 +16,7 @@ interface UltraDataProcessingProps {
   isProcessing: boolean;
   setIsProcessing: (val: boolean) => void;
   onComplete: (products: ProcessedProduct[]) => void;
+  onDataUpdate?: (data: ProductRow[]) => void;
   sessionId?: string | null;
   onSessionUpdate?: (sessionId: string, updates: {
     status?: 'pending' | 'processing' | 'paused' | 'completed' | 'failed';
