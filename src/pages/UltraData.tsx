@@ -244,7 +244,33 @@ const UltraData = () => {
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
+      <main className="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8 space-y-6">
+        {/* Quick Action Buttons */}
+        <div className="flex flex-wrap gap-3">
+          <Button
+            variant="outline"
+            onClick={() => {
+              if (!requireAuth()) return;
+              setShowImageSearch(true);
+            }}
+            className="gap-2"
+          >
+            <Camera className="h-4 w-4" />
+            Busca de Imagens
+          </Button>
+          <Button
+            variant="outline"
+            onClick={() => {
+              if (!requireAuth()) return;
+              setShowEnrichmentModal(true);
+            }}
+            className="gap-2"
+          >
+            <Zap className="h-4 w-4" />
+            Enriquecer Produto
+          </Button>
+        </div>
+
         <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-6">
           <TabsList className="grid w-full grid-cols-7 h-auto p-1">
             <TabsTrigger 
