@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
-import { Upload, Settings2, Sparkles, CheckCircle, SpellCheck, BookA, History, Database, User, LogOut } from 'lucide-react';
+import { Upload, Settings2, Sparkles, CheckCircle, SpellCheck, BookA, History, Database, User, LogOut, Camera, Zap } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Toaster } from '@/components/ui/toaster';
@@ -14,6 +14,8 @@ import UltraDataValidation from '@/components/ultradata/UltraDataValidation';
 import UltraDataTextCorrection from '@/components/ultradata/UltraDataTextCorrection';
 import UltraDataAbbreviations from '@/components/ultradata/UltraDataAbbreviations';
 import UltraDataSessionHistory from '@/components/ultradata/UltraDataSessionHistory';
+import UltraDataImageSearch from '@/components/ultradata/UltraDataImageSearch';
+import UltraDataEnrichmentModal from '@/components/ultradata/UltraDataEnrichmentModal';
 
 export interface ProductRow {
   [key: string]: string | number | null;
@@ -52,6 +54,8 @@ export interface ProcessedProduct {
 const UltraData = () => {
   const { user, loading: authLoading, signOut } = useAuth();
   const [showAuthModal, setShowAuthModal] = useState(false);
+  const [showImageSearch, setShowImageSearch] = useState(false);
+  const [showEnrichmentModal, setShowEnrichmentModal] = useState(false);
   
   // Session management
   const {
@@ -187,7 +191,15 @@ const UltraData = () => {
     <div className="min-h-screen bg-background">
       <Toaster />
       <AuthModal open={showAuthModal} onOpenChange={setShowAuthModal} />
-
+      <UltraDataImageSearch
+        isOpen={showImageSearch}
+        onClose={() => setShowImageSearch(false)}
+      />
+      <UltraDataEnrichmentModal
+        isOpen={showEnrichmentModal}
+        onClose={() => setShowEnrichmentModal(false)}
+        userId={user?.id}
+      />
       {/* Header */}
       <header className="bg-card border-b border-border sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -232,7 +244,33 @@ const UltraData = () => {
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
+      <main className="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8 space-y-6">
+        {/* Quick Action Buttons */}
+        <div className="flex flex-wrap gap-3">
+          <Button
+            variant="outline"
+            onClick={() => {
+              if (!requireAuth()) return;
+              setShowImageSearch(true);
+            }}
+            className="gap-2"
+          >
+            <Camera className="h-4 w-4" />
+            Busca de Imagens
+          </Button>
+          <Button
+            variant="outline"
+            onClick={() => {
+              if (!requireAuth()) return;
+              setShowEnrichmentModal(true);
+            }}
+            className="gap-2"
+          >
+            <Zap className="h-4 w-4" />
+            Enriquecer Produto
+          </Button>
+        </div>
+
         <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-6">
           <TabsList className="grid w-full grid-cols-7 h-auto p-1">
             <TabsTrigger 
