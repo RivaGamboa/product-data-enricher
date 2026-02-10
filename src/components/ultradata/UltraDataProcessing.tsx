@@ -31,6 +31,7 @@ const UltraDataProcessing = ({
   isProcessing,
   setIsProcessing,
   onComplete,
+  onDataUpdate,
   sessionId,
   onSessionUpdate,
 }: UltraDataProcessingProps) => {
