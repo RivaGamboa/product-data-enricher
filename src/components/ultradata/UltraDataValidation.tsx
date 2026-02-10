@@ -476,14 +476,22 @@ const UltraDataValidation = ({
                 <span>•</span>
                 <span>{previewData.columns.length} colunas</span>
               </div>
-              <DialogFooter className="flex-row gap-2 sm:gap-2">
+              <DialogFooter className="flex-row gap-2 sm:gap-2 flex-wrap">
                 <Button variant="outline" onClick={() => setExportPreview(prev => ({ ...prev, isOpen: false }))}>
                   <X className="h-4 w-4 mr-2" />
                   Cancelar
                 </Button>
-                <Button onClick={confirmExport}>
+                <Button variant="outline" onClick={() => confirmExport('json')}>
+                  <FileText className="h-4 w-4 mr-2" />
+                  JSON
+                </Button>
+                <Button variant="outline" onClick={() => confirmExport('csv')}>
+                  <FileDown className="h-4 w-4 mr-2" />
+                  CSV
+                </Button>
+                <Button onClick={() => confirmExport('xlsx')}>
                   <Download className="h-4 w-4 mr-2" />
-                  Confirmar Download
+                  Excel
                 </Button>
               </DialogFooter>
             </div>
